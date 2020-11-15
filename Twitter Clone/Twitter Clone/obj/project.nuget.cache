@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "dZghz9j2Jva1SU6A7p6PDLljK+FbZjYWAaD376aV535eU9PvSIelTVD1i9ROZNB1EsLEx0Wyp1vir4Y11e0pWg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\moham\\Documents\\GitHub\\Twitter-Clone\\Twitter Clone\\Twitter Clone\\Twitter Clone.fsproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\moham\\.nuget\\packages\\fsharp.core\\5.0.0\\fsharp.core.5.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

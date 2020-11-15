@@ -35,6 +35,46 @@
         "netcoreapp3.1": {
           "targetAlias": "netcoreapp3.1",
           "dependencies": {
+            "Akka": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.Cluster": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.DI.Core": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.FSharp": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.Logger.Serilog": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.Persistence": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.Remote": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
+            "Akka.TestKit": {
+              "target": "Package",
+              "version": "[1.4.11, )",
+              "generatePathProperty": true
+            },
             "FSharp.Core": {
               "target": "Package",
               "version": "[5.0.0, )",

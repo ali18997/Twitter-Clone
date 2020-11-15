@@ -17,5 +17,13 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <PkgFSharp_Core Condition=" '$(PkgFSharp_Core)' == '' ">C:\Users\moham\.nuget\packages\fsharp.core\5.0.0</PkgFSharp_Core>
+    <PkgAkka Condition=" '$(PkgAkka)' == '' ">C:\Users\moham\.nuget\packages\akka\1.4.11</PkgAkka>
+    <PkgAkka_TestKit Condition=" '$(PkgAkka_TestKit)' == '' ">C:\Users\moham\.nuget\packages\akka.testkit\1.4.11</PkgAkka_TestKit>
+    <PkgAkka_Remote Condition=" '$(PkgAkka_Remote)' == '' ">C:\Users\moham\.nuget\packages\akka.remote\1.4.11</PkgAkka_Remote>
+    <PkgAkka_Persistence Condition=" '$(PkgAkka_Persistence)' == '' ">C:\Users\moham\.nuget\packages\akka.persistence\1.4.11</PkgAkka_Persistence>
+    <PkgAkka_Logger_Serilog Condition=" '$(PkgAkka_Logger_Serilog)' == '' ">C:\Users\moham\.nuget\packages\akka.logger.serilog\1.4.11</PkgAkka_Logger_Serilog>
+    <PkgAkka_FSharp Condition=" '$(PkgAkka_FSharp)' == '' ">C:\Users\moham\.nuget\packages\akka.fsharp\1.4.11</PkgAkka_FSharp>
+    <PkgAkka_DI_Core Condition=" '$(PkgAkka_DI_Core)' == '' ">C:\Users\moham\.nuget\packages\akka.di.core\1.4.11</PkgAkka_DI_Core>
+    <PkgAkka_Cluster Condition=" '$(PkgAkka_Cluster)' == '' ">C:\Users\moham\.nuget\packages\akka.cluster\1.4.11</PkgAkka_Cluster>
   </PropertyGroup>
 </Project>

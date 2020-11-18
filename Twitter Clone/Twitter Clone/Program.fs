@@ -10,10 +10,12 @@ let system = System.create "system" <| Configuration.defaultConfig()
 
 type tweet(sender, tweet, mentions, hashtags) = 
     inherit Object()
+
     let mutable sender: String = sender
     let mutable tweet: String = tweet
     let mentions: List<String> = mentions
     let hashtags: List<String> = hashtags
+
     member x.getSender = sender
     member x.getTweet = tweet
     member x.getMentions = mentions
@@ -22,6 +24,7 @@ type tweet(sender, tweet, mentions, hashtags) =
 type serverMessage(command, payload) = 
     let mutable command: String = command
     let mutable payload: Object = payload
+
     member x.getCommand = command
     member x.getPayload = payload
 
@@ -29,6 +32,7 @@ type clientMessage(controlFlag, command, payload) =
     let mutable controlFlag: Boolean = controlFlag
     let mutable command: String = command
     let mutable payload: Object = payload
+
     member x.getControlFlag = controlFlag
     member x.getCommand = command
     member x.getPayload = payload
@@ -36,13 +40,17 @@ type clientMessage(controlFlag, command, payload) =
 type subscribedTo(client, subscribedClients) =
     let mutable client: String = client
     let mutable subscribedClients: List<String> = subscribedClients
+
     member x.getClient = client
     member x.getSubscribedClients = subscribedClients
     member x.addSubscribedClients(newClient) = subscribedClients @ [newClient]
 
 type query(typeOf, matching) =
+    inherit Object()
+
     let mutable typeOf: String = typeOf
     let mutable matching: String = matching
+
     member x.getTypeOf = typeOf
     member x.getMatching = matching
 
@@ -55,6 +63,11 @@ let clientAction clientRef controlFlag command payload =
     let clientMsg = new clientMessage(controlFlag, command, payload)
     clientRef <! clientMsg
 
+let clientQuery client typeOf matching =
+    let Client =  system.ActorSelection("akka://system/user/"+  client )
+    let query = new query(typeOf, matching)
+    clientAction Client true "Query" query
+
 let clientRetweet client tweet = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Retweet" tweet
@@ -66,7 +79,7 @@ let clientTweet sender tweet mentions hashtags =
 
 let clientSubscribe client subscribeTo = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Subscribe" subscribedTo
+    clientAction Client true "Subscribe" subscribeTo
 
 let clientRegister client = 
     let clientRef = system.ActorSelection("akka://system/user/" + client)
@@ -114,7 +127,38 @@ let server (serverMailbox:Actor<serverMessage>) =
             let tweet2 = new tweet(clientName, tweet.getTweet, tweet.getMentions, tweet.getHashtags)
             tweets <- tweets @ [tweet2]
             printfn "Retweeted"
-          
+
+        elif msg.getCommand = "Query" then
+            let query:query = downcast msg.getPayload
+            if query.getTypeOf = "MyMentions" then
+                let mutable mentionedTweetList: List<tweet> = []
+                for tweet in tweets do
+                    let mentions = tweet.getMentions
+                    for mention in mentions do
+                        if mention = clientName then
+                            mentionedTweetList <- mentionedTweetList @ [tweet]
+                clientAction client false "MyMentions" mentionedTweetList
+                
+            elif query.getTypeOf = "Subscribed" then
+                let mutable subscribedTweetList: List<tweet> = []
+                for item in subscribedData do
+                    if item.getClient = clientName then
+                        let subscribedClients:List<String> = item.getSubscribedClients
+                        for subClient in subscribedClients do
+                            for tweet in tweets do
+                                if tweet.getSender = subClient then
+                                    subscribedTweetList <- subscribedTweetList @ [tweet]
+                clientAction client false "Subscribed" subscribedTweetList
+
+            elif query.getTypeOf = "Hashtags" then
+                let mutable hashtagTweetList: List<tweet> = []
+                for item in tweets do
+                    let list:List<String> = item.getHashtags
+                    for hashtag in list do
+                        if hashtag = query.getMatching then
+                            hashtagTweetList <- hashtagTweetList @ [item]
+                clientAction client false "Hashtags" hashtagTweetList
+
         return! serverLoop()
     }
 
@@ -162,13 +206,26 @@ let Client (ClientMailbox:Actor<clientMessage>) =
         if(msg.getControlFlag) then
             if(msg.getCommand = "Register") then
                 sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
-            elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || msg.getCommand = "Retweet") then
+            elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || 
+                    msg.getCommand = "Retweet" || msg.getCommand = "Query") then
                     ClientToServer server msg.getCommand msg.getPayload
         else 
             if(msg.getCommand = "Register") then
                 server <- ClientMailbox.Sender()
                 printfn "Registered"
-        
+            elif(msg.getCommand = "MyMentions") then
+                let list:List<tweet> = downcast msg.getPayload
+                printfn "My Mentions Received"
+ 
+            elif(msg.getCommand = "Subscribed") then
+                let list:List<tweet> = downcast msg.getPayload
+                printfn "Subscribed Tweets Received"
+
+            elif(msg.getCommand = "Hashtags") then
+                let list:List<tweet> = downcast msg.getPayload
+                printfn "Hashtags Queried Returned"
+
+
         return! ClientLoop()
     }
 
@@ -191,7 +248,7 @@ let main argv =
  
     delay 1
 
-    clientTweet "client0" "Hello World" ["client2"; "client3"] ["FirstTweet"; "NewUser"]
+    clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
 
     clientSubscribe "client0" "client1"
     clientSubscribe "client0" "client2"
@@ -200,6 +257,10 @@ let main argv =
     delay 1
 
     clientRetweet "client1" tweets.[0]
+
+    clientQuery "client1" "MyMentions" null
+    clientQuery "client0" "Subscribed" null
+    clientQuery "client1" "Hashtags" "FirstTweet"
 
     System.Console.ReadKey() |> ignore
 

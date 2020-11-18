@@ -8,26 +8,43 @@ open System
 //Create System reference
 let system = System.create "system" <| Configuration.defaultConfig()
 
-type tweet() = 
+type tweet(sender, tweet, mentions, hashtags) = 
     inherit Object()
-    [<DefaultValue>] val mutable sender: String
-    [<DefaultValue>] val mutable tweet: String
-    [<DefaultValue>] val mutable mentions: List<String>
-    [<DefaultValue>] val mutable hashtags: List<String>
+    let mutable sender: String = sender
+    let mutable tweet: String = tweet
+    let mentions: List<String> = mentions
+    let hashtags: List<String> = hashtags
+    member x.getSender = sender
+    member x.getTweet = tweet
+    member x.getMentions = mentions
+    member x.getHashtags = hashtags
 
-type serverMessage() = 
-    [<DefaultValue>] val mutable command: String
-    [<DefaultValue>] val mutable payload: Object
+type serverMessage(command, payload) = 
+    let mutable command: String = command
+    let mutable payload: Object = payload
+    member x.getCommand = command
+    member x.getPayload = payload
 
-type clientMessage() = 
-    [<DefaultValue>] val mutable controlFlag: Boolean
-    [<DefaultValue>] val mutable command: String
-    [<DefaultValue>] val mutable payload: Object
+type clientMessage(controlFlag, command, payload) = 
+    let mutable controlFlag: Boolean = controlFlag
+    let mutable command: String = command
+    let mutable payload: Object = payload
+    member x.getControlFlag = controlFlag
+    member x.getCommand = command
+    member x.getPayload = payload
 
-type subscribedTo()=
-    [<DefaultValue>] val mutable client: String
-    [<DefaultValue>] val mutable subscribedClients: List<String>
+type subscribedTo(client, subscribedClients) =
+    let mutable client: String = client
+    let mutable subscribedClients: List<String> = subscribedClients
+    member x.getClient = client
+    member x.getSubscribedClients = subscribedClients
+    member x.addSubscribedClients(newClient) = subscribedClients @ [newClient]
 
+type query(typeOf, matching) =
+    let mutable typeOf: String = typeOf
+    let mutable matching: String = matching
+    member x.getTypeOf = typeOf
+    member x.getMatching = matching
 
 let Twitter = system.ActorSelection("akka://system/user/Twitter")
 
@@ -35,33 +52,19 @@ let mutable tweets:List<tweet> = []
 let mutable subscribedData:List<subscribedTo> = []
 
 let clientAction clientRef controlFlag command payload =
-    let clientMsg = new clientMessage()
-    clientMsg.command <- command
-    clientMsg.controlFlag <- controlFlag
-    clientMsg.payload <- payload
+    let clientMsg = new clientMessage(controlFlag, command, payload)
     clientRef <! clientMsg
 
 let clientRetweet client tweet = 
-    let client:String = client
-    let tweet:tweet = tweet
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Retweet" tweet
 
 let clientTweet sender tweet mentions hashtags = 
-    let tweet:String = tweet
-    let mentions: List<String> = mentions
-    let hashtags: List<String> = hashtags
-    let sender:String = sender
-    let tweetMsg = new tweet()
-    tweetMsg.tweet <- tweet
-    tweetMsg.hashtags <- hashtags
-    tweetMsg.mentions <- mentions
-    tweetMsg.sender <- sender
+    let tweetMsg = new tweet(sender, tweet, mentions, hashtags)
     let client =  system.ActorSelection("akka://system/user/"+  sender )
     clientAction client true "Send Tweet" tweetMsg
 
 let clientSubscribe client subscribeTo = 
-    let client:String = client
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Subscribe" subscribedTo
 
@@ -70,9 +73,7 @@ let clientRegister client =
     clientAction clientRef true "Register" null
 
 let sendToServer server command payload=
-    let serverMsg = new serverMessage()
-    serverMsg.command <- command
-    serverMsg.payload <- payload
+    let serverMsg = new serverMessage(command, payload)
     server <! serverMsg
 
 //Actor
@@ -85,38 +86,32 @@ let server (serverMailbox:Actor<serverMessage>) =
 
         //Receive the message
         let! msg = serverMailbox.Receive()
-        if msg.command = "Register" then
-            clientName <- (string) msg.payload
+        if msg.getCommand = "Register" then
+            clientName <- (string) msg.getPayload
             client <- system.ActorSelection("akka://system/user/"+ clientName )
             clientAction client false "Register" null
 
-        elif msg.command = "Send Tweet" then
-            let tweet:tweet = downcast msg.payload
+        elif msg.getCommand = "Send Tweet" then
+            let tweet:tweet = downcast msg.getPayload
             tweets <- tweets @ [tweet]
             printfn "Tweet Sent"
         
-        elif msg.command = "Subscribe" then
+        elif msg.getCommand = "Subscribe" then
             let client1 = clientName
-            let client2 =(string) msg.payload
+            let client2 =(string) msg.getPayload
             let mutable flag = true
             for item in subscribedData do
-                if (item.client.Equals(client1)) then
-                    item.subscribedClients <- item.subscribedClients @ [client2]
+                if (item.getClient.Equals(client1)) then
+                    item.addSubscribedClients(client2) |> ignore
                     flag <- false
             if(flag) then
-                let sub = new subscribedTo()
-                sub.client <- client1
-                sub.subscribedClients <- [client2]
+                let sub = new subscribedTo(client1, [client2])
                 subscribedData <- subscribedData @ [sub]
             printfn "Subscribed"
 
-        elif msg.command = "Retweet" then
-            let tweet:tweet = downcast msg.payload
-            let tweet2 = new tweet()
-            tweet2.sender <- clientName
-            tweet2.tweet <- tweet.tweet
-            tweet2.hashtags <- tweet.hashtags
-            tweet2.mentions <- tweet.mentions
+        elif msg.getCommand = "Retweet" then
+            let tweet:tweet = downcast msg.getPayload
+            let tweet2 = new tweet(clientName, tweet.getTweet, tweet.getMentions, tweet.getHashtags)
             tweets <- tweets @ [tweet2]
             printfn "Retweeted"
           
@@ -135,9 +130,9 @@ let TwitterEngine (EngineMailbox:Actor<serverMessage>) =
         //Receive the message
         let! msg = EngineMailbox.Receive()
 
-        if msg.command = "Register" then
-            spawn system ("serverfor"+(string) msg.payload) server |> ignore
-            let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.payload)
+        if msg.getCommand = "Register" then
+            spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
+            let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.getPayload)
             server <! msg
         
         return! EngineLoop()
@@ -164,13 +159,13 @@ let Client (ClientMailbox:Actor<clientMessage>) =
         //Receive the message
         let! msg = ClientMailbox.Receive()
 
-        if(msg.controlFlag) then
-            if(msg.command = "Register") then
+        if(msg.getControlFlag) then
+            if(msg.getCommand = "Register") then
                 sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
-            elif (msg.command = "Send Tweet" || msg.command = "Subscribe" || msg.command = "Retweet") then
-                    ClientToServer server msg.command msg.payload
+            elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || msg.getCommand = "Retweet") then
+                    ClientToServer server msg.getCommand msg.getPayload
         else 
-            if(msg.command = "Register") then
+            if(msg.getCommand = "Register") then
                 server <- ClientMailbox.Sender()
                 printfn "Registered"
         

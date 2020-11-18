@@ -61,6 +61,10 @@ let clientSubscribe client subscribeTo =
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Subscribe" list
 
+let clientRegister client = 
+    let clientRef = system.ActorSelection("akka://system/user/" + client)
+    clientAction clientRef true "Register" null
+
 let sendToServer server command payload=
     let serverMsg = new serverMessage()
     serverMsg.command <- command
@@ -101,8 +105,6 @@ let server (serverMailbox:Actor<serverMessage>) =
                 subscribedData <- subscribedData @ [sub]
             printfn "Subscribed"
            
-
-
 
         return! serverLoop()
     }
@@ -164,20 +166,16 @@ let Client (ClientMailbox:Actor<clientMessage>) =
     //Call to start the actor loop
     ClientLoop()
 
-
+let clientSpawnRegister client = 
+    spawn system client Client |> ignore
+    clientRegister client
 
 [<EntryPoint>]
 let main argv =
     spawn system "Twitter" TwitterEngine |> ignore
 
-    spawn system "client0" Client |> ignore
-    spawn system "client1" Client |> ignore
-
-    let clientRef0 = system.ActorSelection("akka://system/user/client0")
-    let clientRef1 = system.ActorSelection("akka://system/user/client1")
-    
-    clientAction clientRef0 true "Register" null
-    clientAction clientRef1 true "Register" null
+    clientSpawnRegister "client0"
+    clientSpawnRegister "client1"
  
     printf ""
 

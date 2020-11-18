@@ -61,6 +61,12 @@ let clientSubscribe client subscribeTo =
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Subscribe" list
 
+let sendToServer server command payload=
+    let serverMsg = new serverMessage()
+    serverMsg.command <- command
+    serverMsg.payload <- payload
+    server <! serverMsg
+
 //Actor
 let server (serverMailbox:Actor<serverMessage>) = 
     //Actor Loop that will process a message on each iteration
@@ -77,6 +83,7 @@ let server (serverMailbox:Actor<serverMessage>) =
         elif msg.command = "Send Tweet" then
             let tweet:tweet = downcast msg.payload
             tweets <- tweets @ [tweet]
+            printfn "Tweet Sent"
         
         elif msg.command = "Subscribe" then
             let list:List<String> =  msg.payload:?>List<String>
@@ -92,6 +99,7 @@ let server (serverMailbox:Actor<serverMessage>) =
                 sub.client <- client1
                 sub.subscribedClients <- [client2]
                 subscribedData <- subscribedData @ [sub]
+            printfn "Subscribed"
            
 
 
@@ -129,6 +137,12 @@ let Client (ClientMailbox:Actor<clientMessage>) =
 
     let mutable server: IActorRef = null
 
+    let ClientToServer server command payload = 
+        if server <> null then 
+            sendToServer server command payload
+        else 
+            printfn "Not Registered"
+
     let rec ClientLoop() = actor {
 
         //Receive the message
@@ -136,29 +150,13 @@ let Client (ClientMailbox:Actor<clientMessage>) =
 
         if(msg.controlFlag) then
             if(msg.command = "Register") then
-                let serverMsg = new serverMessage()
-                serverMsg.command <- "Register"
-                serverMsg.payload <- ClientMailbox.Self.Path.Name
-                Twitter <! serverMsg
-            elif (msg.command = "Send Tweet") then
-                if (server<>null) then 
-                    let serverMsg = new serverMessage()
-                    serverMsg.command <- "Send Tweet"
-                    serverMsg.payload <- msg.payload
-                    server <! serverMsg
-                else 
-                    printfn "Not Registered"
-            elif (msg.command = "Subscribe") then
-                if (server<>null) then 
-                    let serverMsg = new serverMessage()
-                    serverMsg.command <- "Subscribe"
-                    serverMsg.payload <- msg.payload
-                    server <! serverMsg
-                else 
-                    printfn "Not Registered"
+                sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
+            elif (msg.command = "Send Tweet" || msg.command = "Subscribe") then
+                    ClientToServer server msg.command msg.payload
         else 
             if(msg.command = "Register") then
                 server <- ClientMailbox.Sender()
+                printfn "Registered"
         
         return! ClientLoop()
     }

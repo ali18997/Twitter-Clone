@@ -41,6 +41,12 @@ let clientAction clientRef controlFlag command payload =
     clientMsg.payload <- payload
     clientRef <! clientMsg
 
+let clientRetweet client tweet = 
+    let client:String = client
+    let tweet:tweet = tweet
+    let Client =  system.ActorSelection("akka://system/user/"+  client )
+    clientAction Client true "Retweet" tweet
+
 let clientTweet sender tweet mentions hashtags = 
     let tweet:String = tweet
     let mentions: List<String> = mentions
@@ -56,10 +62,8 @@ let clientTweet sender tweet mentions hashtags =
 
 let clientSubscribe client subscribeTo = 
     let client:String = client
-    let subscribedTo:String = subscribeTo
-    let list = [client; subscribedTo]
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Subscribe" list
+    clientAction Client true "Subscribe" subscribedTo
 
 let clientRegister client = 
     let clientRef = system.ActorSelection("akka://system/user/" + client)
@@ -75,13 +79,15 @@ let sendToServer server command payload=
 let server (serverMailbox:Actor<serverMessage>) = 
     //Actor Loop that will process a message on each iteration
     let mutable client: ActorSelection = null
+    let mutable clientName: String = null
 
     let rec serverLoop() = actor {
 
         //Receive the message
         let! msg = serverMailbox.Receive()
         if msg.command = "Register" then
-            client <- system.ActorSelection("akka://system/user/"+ (string) msg.payload )
+            clientName <- (string) msg.payload
+            client <- system.ActorSelection("akka://system/user/"+ clientName )
             clientAction client false "Register" null
 
         elif msg.command = "Send Tweet" then
@@ -90,9 +96,8 @@ let server (serverMailbox:Actor<serverMessage>) =
             printfn "Tweet Sent"
         
         elif msg.command = "Subscribe" then
-            let list:List<String> =  msg.payload:?>List<String>
-            let client1 = list.[0]
-            let client2 = list.[1]
+            let client1 = clientName
+            let client2 =(string) msg.payload
             let mutable flag = true
             for item in subscribedData do
                 if (item.client.Equals(client1)) then
@@ -104,8 +109,17 @@ let server (serverMailbox:Actor<serverMessage>) =
                 sub.subscribedClients <- [client2]
                 subscribedData <- subscribedData @ [sub]
             printfn "Subscribed"
-           
 
+        elif msg.command = "Retweet" then
+            let tweet:tweet = downcast msg.payload
+            let tweet2 = new tweet()
+            tweet2.sender <- clientName
+            tweet2.tweet <- tweet.tweet
+            tweet2.hashtags <- tweet.hashtags
+            tweet2.mentions <- tweet.mentions
+            tweets <- tweets @ [tweet2]
+            printfn "Retweeted"
+          
         return! serverLoop()
     }
 
@@ -153,7 +167,7 @@ let Client (ClientMailbox:Actor<clientMessage>) =
         if(msg.controlFlag) then
             if(msg.command = "Register") then
                 sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
-            elif (msg.command = "Send Tweet" || msg.command = "Subscribe") then
+            elif (msg.command = "Send Tweet" || msg.command = "Subscribe" || msg.command = "Retweet") then
                     ClientToServer server msg.command msg.payload
         else 
             if(msg.command = "Register") then
@@ -170,6 +184,9 @@ let clientSpawnRegister client =
     spawn system client Client |> ignore
     clientRegister client
 
+let delay num = 
+    System.Threading.Thread.Sleep(num * 1000)
+
 [<EntryPoint>]
 let main argv =
     spawn system "Twitter" TwitterEngine |> ignore
@@ -177,13 +194,17 @@ let main argv =
     clientSpawnRegister "client0"
     clientSpawnRegister "client1"
  
-    printf ""
+    delay 1
 
     clientTweet "client0" "Hello World" ["client2"; "client3"] ["FirstTweet"; "NewUser"]
 
     clientSubscribe "client0" "client1"
     clientSubscribe "client0" "client2"
     clientSubscribe "client1" "client2"
+    
+    delay 1
+
+    clientRetweet "client1" tweets.[0]
 
     System.Console.ReadKey() |> ignore
 

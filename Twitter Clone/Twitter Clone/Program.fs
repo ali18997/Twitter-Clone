@@ -8,17 +8,26 @@ open System
 //Create System reference
 let system = System.create "system" <| Configuration.defaultConfig()
 
+type tweet() = 
+    inherit Object()
+    [<DefaultValue>] val mutable sender: String
+    [<DefaultValue>] val mutable tweet: String
+    [<DefaultValue>] val mutable mentions: List<String>
+    [<DefaultValue>] val mutable hashtags: List<String>
+
 type serverMessage() = 
     [<DefaultValue>] val mutable command: String
-    [<DefaultValue>] val mutable payload: String
+    [<DefaultValue>] val mutable payload: Object
 
 type clientMessage() = 
     [<DefaultValue>] val mutable controlFlag: Boolean
     [<DefaultValue>] val mutable command: String
-    [<DefaultValue>] val mutable payload: String
+    [<DefaultValue>] val mutable payload: Object
 
 
 let Twitter = system.ActorSelection("akka://system/user/Twitter")
+
+let mutable tweets:List<tweet> = []
 
 let clientAction clientRef controlFlag command payload =
     let clientMsg = new clientMessage()
@@ -26,6 +35,19 @@ let clientAction clientRef controlFlag command payload =
     clientMsg.controlFlag <- controlFlag
     clientMsg.payload <- payload
     clientRef <! clientMsg
+
+let clientTweet sender tweet mentions hashtags = 
+    let tweet:String = tweet
+    let mentions: List<String> = mentions
+    let hashtags: List<String> = hashtags
+    let sender:String = sender
+    let tweetMsg = new tweet()
+    tweetMsg.tweet <- tweet
+    tweetMsg.hashtags <- hashtags
+    tweetMsg.mentions <- mentions
+    tweetMsg.sender <- sender
+    let client =  system.ActorSelection("akka://system/user/"+  sender )
+    clientAction client true "Send Tweet" tweetMsg
 
 //Actor
 let server (serverMailbox:Actor<serverMessage>) = 
@@ -37,11 +59,13 @@ let server (serverMailbox:Actor<serverMessage>) =
         //Receive the message
         let! msg = serverMailbox.Receive()
         if msg.command = "Register" then
-            client <- system.ActorSelection("akka://system/user/"+msg.payload)
+            client <- system.ActorSelection("akka://system/user/"+ (string) msg.payload )
             clientAction client false "Register" null
 
         elif msg.command = "Send Tweet" then
-            printfn "Tweeted: %A"  msg.payload
+            let tweet:tweet = downcast msg.payload
+            tweets <- tweets @ [tweet]
+            
 
         return! serverLoop()
     }
@@ -59,8 +83,8 @@ let TwitterEngine (EngineMailbox:Actor<serverMessage>) =
         let! msg = EngineMailbox.Receive()
 
         if msg.command = "Register" then
-            spawn system ("serverfor"+msg.payload) server |> ignore
-            let server = system.ActorSelection("akka://system/user/"+"serverfor"+msg.payload)
+            spawn system ("serverfor"+(string) msg.payload) server |> ignore
+            let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.payload)
             server <! msg
         
         return! EngineLoop()
@@ -98,7 +122,6 @@ let Client (ClientMailbox:Actor<clientMessage>) =
         else 
             if(msg.command = "Register") then
                 server <- ClientMailbox.Sender()
-                printfn "Registered"
         
         return! ClientLoop()
     }
@@ -120,7 +143,7 @@ let main argv =
  
     printf ""
 
-    clientAction clientRef true "Send Tweet" "Hello World"
+    clientTweet "client0" "Hello World" ["client2"; "client3"] ["FirstTweet"; "NewUser"]
 
     System.Console.ReadKey() |> ignore
 

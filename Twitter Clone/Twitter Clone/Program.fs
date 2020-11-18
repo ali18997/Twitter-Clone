@@ -24,10 +24,15 @@ type clientMessage() =
     [<DefaultValue>] val mutable command: String
     [<DefaultValue>] val mutable payload: Object
 
+type subscribedTo()=
+    [<DefaultValue>] val mutable client: String
+    [<DefaultValue>] val mutable subscribedClients: List<String>
+
 
 let Twitter = system.ActorSelection("akka://system/user/Twitter")
 
 let mutable tweets:List<tweet> = []
+let mutable subscribedData:List<subscribedTo> = []
 
 let clientAction clientRef controlFlag command payload =
     let clientMsg = new clientMessage()
@@ -49,6 +54,13 @@ let clientTweet sender tweet mentions hashtags =
     let client =  system.ActorSelection("akka://system/user/"+  sender )
     clientAction client true "Send Tweet" tweetMsg
 
+let clientSubscribe client subscribeTo = 
+    let client:String = client
+    let subscribedTo:String = subscribeTo
+    let list = [client; subscribedTo]
+    let Client =  system.ActorSelection("akka://system/user/"+  client )
+    clientAction Client true "Subscribe" list
+
 //Actor
 let server (serverMailbox:Actor<serverMessage>) = 
     //Actor Loop that will process a message on each iteration
@@ -65,7 +77,24 @@ let server (serverMailbox:Actor<serverMessage>) =
         elif msg.command = "Send Tweet" then
             let tweet:tweet = downcast msg.payload
             tweets <- tweets @ [tweet]
-            
+        
+        elif msg.command = "Subscribe" then
+            let list:List<String> =  msg.payload:?>List<String>
+            let client1 = list.[0]
+            let client2 = list.[1]
+            let mutable flag = true
+            for item in subscribedData do
+                if (item.client.Equals(client1)) then
+                    item.subscribedClients <- item.subscribedClients @ [client2]
+                    flag <- false
+            if(flag) then
+                let sub = new subscribedTo()
+                sub.client <- client1
+                sub.subscribedClients <- [client2]
+                subscribedData <- subscribedData @ [sub]
+           
+
+
 
         return! serverLoop()
     }
@@ -119,6 +148,14 @@ let Client (ClientMailbox:Actor<clientMessage>) =
                     server <! serverMsg
                 else 
                     printfn "Not Registered"
+            elif (msg.command = "Subscribe") then
+                if (server<>null) then 
+                    let serverMsg = new serverMessage()
+                    serverMsg.command <- "Subscribe"
+                    serverMsg.payload <- msg.payload
+                    server <! serverMsg
+                else 
+                    printfn "Not Registered"
         else 
             if(msg.command = "Register") then
                 server <- ClientMailbox.Sender()
@@ -136,14 +173,21 @@ let main argv =
     spawn system "Twitter" TwitterEngine |> ignore
 
     spawn system "client0" Client |> ignore
+    spawn system "client1" Client |> ignore
 
-    let clientRef = system.ActorSelection("akka://system/user/client0")
+    let clientRef0 = system.ActorSelection("akka://system/user/client0")
+    let clientRef1 = system.ActorSelection("akka://system/user/client1")
     
-    clientAction clientRef true "Register" null
+    clientAction clientRef0 true "Register" null
+    clientAction clientRef1 true "Register" null
  
     printf ""
 
     clientTweet "client0" "Hello World" ["client2"; "client3"] ["FirstTweet"; "NewUser"]
+
+    clientSubscribe "client0" "client1"
+    clientSubscribe "client0" "client2"
+    clientSubscribe "client1" "client2"
 
     System.Console.ReadKey() |> ignore
 

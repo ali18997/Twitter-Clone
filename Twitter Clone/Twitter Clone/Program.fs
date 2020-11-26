@@ -43,7 +43,7 @@ type subscribedTo(client, subscribedClients) =
 
     member x.getClient = client
     member x.getSubscribedClients = subscribedClients
-    member x.addSubscribedClients(newClient) = subscribedClients @ [newClient]
+    member x.addSubscribedClients(newClient) = subscribedClients <- subscribedClients @ [newClient]
 
 type query(typeOf, matching) =
     inherit Object()
@@ -96,7 +96,36 @@ let server (serverMailbox:Actor<serverMessage>) =
     let mutable clientName: String = null
 
     let rec serverLoop() = actor {
+        
+        let sendLive tweet =
+        
+            let checkExists client toSend = 
+                let client:String = client
+                let toSend:List<String> = toSend
+                let mutable flag = true
+                for item in toSend do
+                    if item.Equals(client) then
+                        flag <- false
+                flag
 
+            let tweet:tweet = tweet
+            let mentions:List<String> = tweet.getMentions
+            
+            let mutable toSend: List<String> = []
+            for client in mentions do
+                toSend <- [client] @ toSend
+
+            for item in subscribedData do
+                let list:List<String> = item.getSubscribedClients
+                for item2 in list do
+                    if item2.Equals(tweet.getSender) then
+                        if checkExists item.getClient toSend then
+                            toSend <- [item.getClient] @ toSend
+
+            for item3 in toSend do
+                let client =  system.ActorSelection("akka://system/user/"+ item3 )
+                clientAction client false "Live" tweet
+    
         //Receive the message
         let! msg = serverMailbox.Receive()
         if msg.getCommand = "Register" then
@@ -108,6 +137,7 @@ let server (serverMailbox:Actor<serverMessage>) =
             let tweet:tweet = downcast msg.getPayload
             tweets <- tweets @ [tweet]
             printfn "Tweet Sent"
+            sendLive tweet
         
         elif msg.getCommand = "Subscribe" then
             let client1 = clientName
@@ -127,6 +157,7 @@ let server (serverMailbox:Actor<serverMessage>) =
             let tweet2 = new tweet(clientName, tweet.getTweet, tweet.getMentions, tweet.getHashtags)
             tweets <- tweets @ [tweet2]
             printfn "Retweeted"
+            sendLive tweet2
 
         elif msg.getCommand = "Query" then
             let query:query = downcast msg.getPayload
@@ -209,21 +240,26 @@ let Client (ClientMailbox:Actor<clientMessage>) =
             elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || 
                     msg.getCommand = "Retweet" || msg.getCommand = "Query") then
                     ClientToServer server msg.getCommand msg.getPayload
-        else 
+        else
             if(msg.getCommand = "Register") then
                 server <- ClientMailbox.Sender()
-                printfn "Registered"
+                printfn "%A Registered" ClientMailbox.Self.Path.Name
+
             elif(msg.getCommand = "MyMentions") then
                 let list:List<tweet> = downcast msg.getPayload
-                printfn "My Mentions Received"
+                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name list
  
             elif(msg.getCommand = "Subscribed") then
                 let list:List<tweet> = downcast msg.getPayload
-                printfn "Subscribed Tweets Received"
+                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name list
 
             elif(msg.getCommand = "Hashtags") then
                 let list:List<tweet> = downcast msg.getPayload
-                printfn "Hashtags Queried Returned"
+                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name list
+
+            elif(msg.getCommand = "Live") then 
+                let liveTweet:tweet = downcast msg.getPayload
+                printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name liveTweet
 
 
         return! ClientLoop()
@@ -244,23 +280,33 @@ let main argv =
     spawn system "Twitter" TwitterEngine |> ignore
 
     clientSpawnRegister "client0"
+    delay 1
     clientSpawnRegister "client1"
+    delay 1
+    clientSpawnRegister "client2"
  
     delay 1
-
-    clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
-
     clientSubscribe "client0" "client1"
+    delay 1
     clientSubscribe "client0" "client2"
+    delay 1
     clientSubscribe "client1" "client2"
+    delay 1
+    clientSubscribe "client1" "client0"
+    delay 1
+    clientSubscribe "client2" "client0"
+    delay 1
+
+    //clientTweet "client0" "Hello World" [] ["FirstTweet"; "NewUser"]
+    clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
     
     delay 1
 
-    clientRetweet "client1" tweets.[0]
+    //clientRetweet "client1" tweets.[0]
 
-    clientQuery "client1" "MyMentions" null
-    clientQuery "client0" "Subscribed" null
-    clientQuery "client1" "Hashtags" "FirstTweet"
+    //clientQuery "client1" "MyMentions" null
+    //clientQuery "client0" "Subscribed" null
+    //clientQuery "client1" "Hashtags" "FirstTweet"
 
     System.Console.ReadKey() |> ignore
 

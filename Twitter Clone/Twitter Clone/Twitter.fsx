@@ -245,7 +245,7 @@ let constructStringFromTweet (tweet:tweet) =
     let mutable s = String.Empty
     s<-s+tweet.getTweet
     for i in tweet.getMentions do
-        s<-s+" "+i
+        s<-s+" @"+i
     for i in tweet.getHashtags do
         s<-s+" "+i
     s
@@ -407,7 +407,7 @@ let ClientCooridnator (mailbox: Actor<_>) =
 
                             //printfn "Mentions:%A" mentions
 
-                            let list2 = mentions |> Set.map (fun x -> "@" + x.ToString());
+                            let list2 = mentions |> Set.map (fun x -> x.ToString());
 
                             //printfn "0:%d" (hashTagList.Length-1)
                             let hIndex = generateRandomNumber 0 (hashTagList.Length-1)

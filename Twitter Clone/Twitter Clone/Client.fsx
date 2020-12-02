@@ -19,12 +19,12 @@ let config =
         @"akka {
             actor.provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
             remote.dot-netty.tcp {
-                hostname = ""127.0.0.1""
-                port = 58769
+                hostname = ""localhost""
+                port = 9002
             }
         }"
 
-let system = ActorSystem.Create("Client", config)
+let system = ActorSystem.Create("system", config)
 
 type ProcessorMessage = 
     | InitializeClientCoorinator of int
@@ -84,30 +84,30 @@ let clientAction clientRef controlFlag command payload =
     clientRef <! clientMsg
 
 let clientQuery client typeOf matching =
-    let Client =  system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+client)
+    let Client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
     let query = new query(typeOf, matching)
     clientAction Client true "Query" query
 
 let clientRetweet client tweet = 
-    let Client =  system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+client)
+    let Client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
     clientAction Client true "Retweet" tweet
 
 let clientTweet sender tweet mentions hashtags = 
     let tweetMsg = new tweet(sender, tweet, mentions, hashtags)
-    let client =  system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+sender)
+    let client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+sender)
     clientAction client true "Send Tweet" tweetMsg
 
 let clientSubscribe client subscribeTo = 
-    let Client =  system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+client)
+    let Client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
     clientAction Client true "Subscribe" subscribeTo
 
 let clientRegister client = 
-    let clientRef = system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+client)
+    let clientRef = system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
     clientAction clientRef true "Register" null
 
 let sendToServer server command payload=
     let serverMsg = new serverMessage(command, payload)
-    server <! serverMsg
+    server <! command
 
 let constructStringFromTweet (tweet:tweet) = 
     let mutable s = String.Empty
@@ -146,7 +146,7 @@ let generateRandomNumber x y =
 
 
 
-let Twitter = system.ActorSelection("akka.tcp://FSServer@127.0.0.1:9001/user/Twitter")
+let Twitter = system.ActorSelection("akka.tcp://system@localhost:9001/user/Twitter")
 let mutable liveClients = Set.empty
 
 let Client (ClientMailbox:Actor<clientMessage>) = 
@@ -168,7 +168,7 @@ let Client (ClientMailbox:Actor<clientMessage>) =
 
         if(msg.getControlFlag) then
             if(msg.getCommand = "Register") then
-                sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
+                sendToServer Twitter "Register" ClientMailbox.Self.Path.Name
             elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || msg.getCommand = "Query") then
                 ClientToServer server msg.getCommand msg.getPayload
             else

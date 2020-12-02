@@ -25,12 +25,12 @@ let config =
         @"akka {
             actor.provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
             remote.dot-netty.tcp {
-                hostname = ""127.0.0.1""
+                hostname = ""localhost""
                 port = 9001
             }
         }"
 
-let system = ActorSystem.Create("FSServer", config)
+let system = ActorSystem.Create("system", config)
 
 type serverMessage(command, payload) = 
     let mutable command: String = command
@@ -120,14 +120,14 @@ let server (serverMailbox:Actor<serverMessage>) =
                             toSend <- [item.getClient] @ toSend
 
             for item3 in toSend do
-                let client =  system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+item3)
+                let client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+item3)
                 clientAction client false "Live" tweet
     
         //Receive the message
         let! msg = serverMailbox.Receive()
         if msg.getCommand = "Register" then
             clientName <- (string) msg.getPayload
-            client <- system.ActorSelection("akka.tcp://Client@127.0.0.1:58769/user/"+clientName)
+            client <- system.ActorSelection("akka.tcp://system@localhost:9002/user/"+clientName)
             clientAction client false "Register" null
 
         elif msg.getCommand = "Send Tweet" then
@@ -193,7 +193,7 @@ let server (serverMailbox:Actor<serverMessage>) =
     //Call to start the actor loop
     serverLoop()
 
-let TwitterEngine (EngineMailbox:Actor<serverMessage>) = 
+let TwitterEngine (EngineMailbox:Actor<string>) = 
     //Actor Loop that will process a message on each iteration
 
     let rec EngineLoop() = actor {
@@ -201,10 +201,15 @@ let TwitterEngine (EngineMailbox:Actor<serverMessage>) =
         //Receive the message
         let! msg = EngineMailbox.Receive()
 
-        if msg.getCommand = "Register" then
-            spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
-            let server = system.ActorSelection("akka.tcp://FSServer@127.0.0.1:9001/user/serverfor"+(string) msg.getPayload)
-            server <! msg
+        printfn "here %A" msg
+        //printfn "here2 %A" msg.getCommand
+        //printfn "here3 %A" msg.getPayload
+
+        //if msg.getCommand = "Register" then
+            
+            //spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
+            //let server = system.ActorSelection("akka.tcp://system@localhost:9001/user/serverfor"+(string) msg.getPayload)
+            //server <! msg
         
         return! EngineLoop()
     }

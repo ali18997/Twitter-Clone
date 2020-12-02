@@ -75,7 +75,32 @@
               "version": "[1.4.11, )",
               "generatePathProperty": true
             },
+            "DotNetty.Buffers": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
+            "DotNetty.Common": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
+            "DotNetty.Transport": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
             "FSharp.Core": {
+              "target": "Package",
+              "version": "[5.0.0, )",
+              "generatePathProperty": true
+            },
+            "Microsoft.Extensions.Logging": {
+              "target": "Package",
+              "version": "[5.0.0, )",
+              "generatePathProperty": true
+            },
+            "Microsoft.Extensions.Logging.Abstractions": {
               "target": "Package",
               "version": "[5.0.0, )",
               "generatePathProperty": true

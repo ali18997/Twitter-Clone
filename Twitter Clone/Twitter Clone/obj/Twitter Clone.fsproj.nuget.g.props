@@ -16,7 +16,12 @@
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <PkgMicrosoft_Extensions_Logging_Abstractions Condition=" '$(PkgMicrosoft_Extensions_Logging_Abstractions)' == '' ">C:\Users\moham\.nuget\packages\microsoft.extensions.logging.abstractions\5.0.0</PkgMicrosoft_Extensions_Logging_Abstractions>
+    <PkgMicrosoft_Extensions_Logging Condition=" '$(PkgMicrosoft_Extensions_Logging)' == '' ">C:\Users\moham\.nuget\packages\microsoft.extensions.logging\5.0.0</PkgMicrosoft_Extensions_Logging>
     <PkgFSharp_Core Condition=" '$(PkgFSharp_Core)' == '' ">C:\Users\moham\.nuget\packages\fsharp.core\5.0.0</PkgFSharp_Core>
+    <PkgDotNetty_Common Condition=" '$(PkgDotNetty_Common)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.common\0.6.0</PkgDotNetty_Common>
+    <PkgDotNetty_Buffers Condition=" '$(PkgDotNetty_Buffers)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.buffers\0.6.0</PkgDotNetty_Buffers>
+    <PkgDotNetty_Transport Condition=" '$(PkgDotNetty_Transport)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.transport\0.6.0</PkgDotNetty_Transport>
     <PkgAkka Condition=" '$(PkgAkka)' == '' ">C:\Users\moham\.nuget\packages\akka\1.4.11</PkgAkka>
     <PkgAkka_TestKit Condition=" '$(PkgAkka_TestKit)' == '' ">C:\Users\moham\.nuget\packages\akka.testkit\1.4.11</PkgAkka_TestKit>
     <PkgAkka_Remote Condition=" '$(PkgAkka_Remote)' == '' ">C:\Users\moham\.nuget\packages\akka.remote\1.4.11</PkgAkka_Remote>

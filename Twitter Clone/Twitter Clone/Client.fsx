@@ -40,8 +40,8 @@ let system = ActorSystem.Create("system", config)
 //     let noOfClients: int = numberOfClients
 
 type ClientCoordinatorMessage(command,noOfClients) = 
-    let command: String = command
-    let noOfClients: int = noOfClients
+    member this.Command = command
+    member this.NoOfClients = noOfClients
 
 // type Terminate() = 
 //     let command: String = "Terminate"
@@ -102,7 +102,10 @@ type query(typeOf, matching) =
     member x.getMatching = matching
 
 let clientAction clientRef controlFlag command payload =
+    //printfn "ccc"
     let clientMsg = new clientMessage(controlFlag, command, payload)
+    let mmm = JsonConvert.SerializeObject(clientMsg)
+    //printfn "%s" mmm
     clientRef <! JsonConvert.SerializeObject(clientMsg)
 
 let clientQuery client typeOf matching =
@@ -124,7 +127,9 @@ let clientSubscribe client subscribeTo =
     clientAction Client true "Subscribe" subscribeTo
 
 let clientRegister client = 
+    //printfn "bbb"
     let clientRef = system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
+    //printfn "%A" clientRef
     clientAction clientRef true "Register" null
 
 let sendToServer server command payload=
@@ -187,10 +192,13 @@ let Client (ClientMailbox:Actor<_>) =
 
         //Receive the message
         let! message = ClientMailbox.Receive()
-        let msg = JsonConvert.DeserializeObject<serverMessage>(message)    
+        //printfn "client %s : %s" ClientMailbox.Self.Path.Name message
+        let msg = JsonConvert.DeserializeObject<clientMessage>(message)
+       // printfn "client %s : %b" ClientMailbox.Self.Path.Name msg.getControlFlag
 
         if(msg.getControlFlag) then
             if(msg.getCommand = "Register") then
+                
                 sendToServer Twitter "Register" ClientMailbox.Self.Path.Name
             elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || msg.getCommand = "Query") then
                 ClientToServer server msg.getCommand msg.getPayload
@@ -239,6 +247,7 @@ let Client (ClientMailbox:Actor<_>) =
     ClientLoop()
 
 let clientSpawnRegister client = 
+    //printfn "aaa"
     spawn system client Client |> ignore
     clientRegister client
 
@@ -254,19 +263,20 @@ let ClientCoordinator (mailbox: Actor<_>) =
     let rec loop () = actor {
 
         let! message = mailbox.Receive ()
-        let msg = JsonConvert.DeserializeObject<ClientCoordinatorMessage>(message)     
-        match msg.command with   
+        let (msg:ClientCoordinatorMessage) = JsonConvert.DeserializeObject<ClientCoordinatorMessage>(message)     
+        match msg.Command with   
 
         | "InitializeClientCoorinator" -> 
-            noOfClients <- numClients
+            noOfClients <- msg.NoOfClients
             clientList <- List.ofSeq [1..noOfClients]
-            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("RegisterAndSubscribe",noOfClients))
+            mailbox.Self <! JsonConvert.SerializeObject(ClientCoordinatorMessage("RegisterAndSubscribe",noOfClients))
 
         | "RegisterAndSubscribe" ->
             //Register all clients
 
             for i=1 to noOfClients do
                 clientSpawnRegister ((string) i)
+                //printfn "regis %d" i
 
             delay 2
             //Subscription as per zipf distribution
@@ -278,7 +288,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
                     //let r = System.Random()
                     //let nums = r.GetValues(1, noOfClients+1) |> Seq.take noOfSubscribers
                     let nums = generateRandomSubSet 1 (noOfClients+1) noOfSubscribers
-                    printfn "Client %d has subscribers %A" i nums
+                    //printfn "Client %d has subscribers %A" i nums
                     for j in nums do
                         if (j<>i) then
                             clientSubscribe ((string) j) ((string) i)
@@ -288,6 +298,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
             mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("Operate",noOfClients))
 
         | "Operate" ->
+            //printfn "yyy"
             let choices = [1;3]
             //printfn "Live clients = %A" liveClients
             for onlineClient in liveClients do
@@ -330,10 +341,11 @@ let ClientCoordinator (mailbox: Actor<_>) =
                                 let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
                                 clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
             
-            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("UpdateConnections",noOfClients))
-            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("Operate",noOfClients))
+            mailbox.Self <! JsonConvert.SerializeObject(ClientCoordinatorMessage("UpdateConnections",noOfClients))
+            mailbox.Self <! JsonConvert.SerializeObject(ClientCoordinatorMessage("Operate",noOfClients))
 
         | "UpdateConnections" ->
+            //printfn "xxx"
             let no = generateRandomNumber 1 noOfClients
             liveClients <- generateRandomSubSet 1 (noOfClients+1) no
 

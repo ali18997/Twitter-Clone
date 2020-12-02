@@ -13,6 +13,7 @@ open Akka.FSharp
 open Akka.Actor
 open System
 open System.Diagnostics
+open Newtonsoft.Json
 
 let config =
     Configuration.parse
@@ -26,12 +27,33 @@ let config =
 
 let system = ActorSystem.Create("system", config)
 
-type ProcessorMessage = 
-    | InitializeClientCoorinator of int
-    | RegisterAndSubscribe of bool
-    | Operate of bool
-    | UpdateConnections of bool
-    | Terminate of bool
+// type ProcessorMessage = 
+// //    | InitializeClientCoorinator of int
+// //    | RegisterAndSubscribe of bool
+// //    | Operate of bool
+// //    | UpdateConnections of bool
+//     | Terminate of bool
+
+
+// type InitializeClientCoorinator(numberOfClients) = 
+//     let command: String = "InitializeClientCoorinator"
+//     let noOfClients: int = numberOfClients
+
+type ClientCoordinatorMessage(command,noOfClients) = 
+    let command: String = command
+    let noOfClients: int = noOfClients
+
+// type Terminate() = 
+//     let command: String = "Terminate"
+
+// type RegisterAndSubscribe() =
+//     let command: String = "RegisterAndSubscribe"
+
+// type Operate() = 
+//     let command: String = "Operate"
+
+// type UpdateConnections() = 
+//     let command: String = "UpdateConnections"
 
 type tweet(sender, tweet, mentions, hashtags) = 
     inherit Object()
@@ -81,7 +103,7 @@ type query(typeOf, matching) =
 
 let clientAction clientRef controlFlag command payload =
     let clientMsg = new clientMessage(controlFlag, command, payload)
-    clientRef <! clientMsg
+    clientRef <! JsonConvert.SerializeObject(clientMsg)
 
 let clientQuery client typeOf matching =
     let Client =  system.ActorSelection("akka.tcp://system@localhost:9002/user/"+client)
@@ -107,7 +129,7 @@ let clientRegister client =
 
 let sendToServer server command payload=
     let serverMsg = new serverMessage(command, payload)
-    server <! command
+    server <! JsonConvert.SerializeObject(command)
 
 let constructStringFromTweet (tweet:tweet) = 
     let mutable s = String.Empty
@@ -149,7 +171,7 @@ let generateRandomNumber x y =
 let Twitter = system.ActorSelection("akka.tcp://system@localhost:9001/user/Twitter")
 let mutable liveClients = Set.empty
 
-let Client (ClientMailbox:Actor<clientMessage>) = 
+let Client (ClientMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
 
     let mutable server: IActorRef = null
@@ -164,7 +186,8 @@ let Client (ClientMailbox:Actor<clientMessage>) =
     let rec ClientLoop() = actor {
 
         //Receive the message
-        let! msg = ClientMailbox.Receive()
+        let! message = ClientMailbox.Receive()
+        let msg = JsonConvert.DeserializeObject<serverMessage>(message)    
 
         if(msg.getControlFlag) then
             if(msg.getCommand = "Register") then
@@ -219,7 +242,7 @@ let clientSpawnRegister client =
     spawn system client Client |> ignore
     clientRegister client
 
-let ClientCooridnator (mailbox: Actor<_>) =
+let ClientCoordinator (mailbox: Actor<_>) =
     let mutable noOfClients = 0
     //let mutable liveClients = Set.empty
     let mutable clientList = List.empty
@@ -227,19 +250,20 @@ let ClientCooridnator (mailbox: Actor<_>) =
     let tweetString = "Twitter is an American microblogging and social networking service on which users post and interact with messages known as tweets."
     let hashTagList = ["#twitter";"F#";"#DOS";"#covid19";"#lockdown";"#Akka"]
     //let m = system.Scheduler.ScheduleTellRepeatedlyCancelable(TimeSpan.FromMilliseconds(5000.0),TimeSpan.FromMilliseconds(5000.0),mailbox.Self,UpdateConnections(true),mailbox.Self)
-    let t = system.Scheduler.ScheduleTellOnceCancelable(TimeSpan.FromSeconds(10.0),mailbox.Self,Terminate(true),mailbox.Self)
+    let t = system.Scheduler.ScheduleTellOnceCancelable(TimeSpan.FromSeconds(10.0),mailbox.Self,ClientCoordinatorMessage("Terminate",noOfClients),mailbox.Self)
     let rec loop () = actor {
 
         let! message = mailbox.Receive ()
-        match message with
-        | InitializeClientCoorinator(numClients) -> 
+        let msg = JsonConvert.DeserializeObject<ClientCoordinatorMessage>(message)     
+        match msg.command with   
+
+        | "InitializeClientCoorinator" -> 
             noOfClients <- numClients
             clientList <- List.ofSeq [1..noOfClients]
-            mailbox.Self <! RegisterAndSubscribe(true)
+            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("RegisterAndSubscribe",noOfClients))
 
-        | RegisterAndSubscribe(bool) ->
+        | "RegisterAndSubscribe" ->
             //Register all clients
-            delay 5
 
             for i=1 to noOfClients do
                 clientSpawnRegister ((string) i)
@@ -260,10 +284,10 @@ let ClientCooridnator (mailbox: Actor<_>) =
                             clientSubscribe ((string) j) ((string) i)
             delay 2
             //cycle<-cycle+1
-            mailbox.Self <! UpdateConnections(true)
-            mailbox.Self <! Operate(bool)
+            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("UpdateConnections",noOfClients))
+            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("Operate",noOfClients))
 
-        | Operate(bool) ->
+        | "Operate" ->
             let choices = [1;3]
             //printfn "Live clients = %A" liveClients
             for onlineClient in liveClients do
@@ -305,15 +329,15 @@ let ClientCooridnator (mailbox: Actor<_>) =
                             else
                                 let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
                                 clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
+            
+            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("UpdateConnections",noOfClients))
+            mailbox.Self <! JsonConvert.SerializeObject(new ClientCoordinatorMessage("Operate",noOfClients))
 
-            mailbox.Self <! UpdateConnections(true)         
-            mailbox.Self <! Operate(bool)
-
-        | UpdateConnections(bool) ->
+        | "UpdateConnections" ->
             let no = generateRandomNumber 1 noOfClients
             liveClients <- generateRandomSubSet 1 (noOfClients+1) no
 
-        | Terminate(bool) ->
+        | "Terminate" ->
             //m.Cancel()
             t.Cancel()
             printfn "Simulation Completed. Press Any key to close"
@@ -323,7 +347,7 @@ let ClientCooridnator (mailbox: Actor<_>) =
     }
     loop()
 
-let cc = spawn system "CC" ClientCooridnator
-cc<!InitializeClientCoorinator(10)
+let cc = spawn system "CC" ClientCoordinator
+cc<!JsonConvert.SerializeObject(new ClientCoordinatorMessage("InitializeClientCoorinator",10))
 
 System.Console.ReadKey() |> ignore

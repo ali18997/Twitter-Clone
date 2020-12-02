@@ -18,7 +18,7 @@ open Akka.FSharp
 open Akka.Actor
 open System
 open System.Diagnostics
-
+open Newtonsoft.Json
 
 let config =
     Configuration.parse
@@ -71,7 +71,7 @@ type clientMessage(controlFlag, command, payload) =
 
 let clientAction clientRef controlFlag command payload =
     let clientMsg = new clientMessage(controlFlag, command, payload)
-    clientRef <! clientMsg
+    clientRef <! JsonConvert.SerializeObject(clientMsg)
 
 type query(typeOf, matching) =
     inherit Object()
@@ -87,7 +87,7 @@ let mutable subscribedData:List<subscribedTo> = []
 
 //spawn system "Twitter" TwitterEngine |> ignore
 
-let server (serverMailbox:Actor<serverMessage>) = 
+let server (serverMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
     let mutable client: ActorSelection = null
     let mutable clientName: String = null
@@ -124,7 +124,8 @@ let server (serverMailbox:Actor<serverMessage>) =
                 clientAction client false "Live" tweet
     
         //Receive the message
-        let! msg = serverMailbox.Receive()
+        let! message = serverMailbox.Receive()
+        let msg = JsonConvert.DeserializeObject<serverMessage>(message) 
         if msg.getCommand = "Register" then
             clientName <- (string) msg.getPayload
             client <- system.ActorSelection("akka.tcp://system@localhost:9002/user/"+clientName)
@@ -193,23 +194,24 @@ let server (serverMailbox:Actor<serverMessage>) =
     //Call to start the actor loop
     serverLoop()
 
-let TwitterEngine (EngineMailbox:Actor<string>) = 
+let TwitterEngine (EngineMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
 
     let rec EngineLoop() = actor {
 
         //Receive the message
-        let! msg = EngineMailbox.Receive()
+        let! message = EngineMailbox.Receive()
 
-        printfn "here %A" msg
+        let msg = JsonConvert.DeserializeObject<serverMessage>(message)    
+        //printfn "here %A" msg
         //printfn "here2 %A" msg.getCommand
         //printfn "here3 %A" msg.getPayload
 
-        //if msg.getCommand = "Register" then
+        if msg.getCommand = "Register" then
             
-            //spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
-            //let server = system.ActorSelection("akka.tcp://system@localhost:9001/user/serverfor"+(string) msg.getPayload)
-            //server <! msg
+            spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
+            let server = system.ActorSelection("akka.tcp://system@localhost:9001/user/serverfor"+(string) msg.getPayload)
+            server <! JsonConvert.SerializeObject(msg)
         
         return! EngineLoop()
     }

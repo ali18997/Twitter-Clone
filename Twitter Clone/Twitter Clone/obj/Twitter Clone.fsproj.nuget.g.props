@@ -4,31 +4,12 @@
     <RestoreSuccess Condition=" '$(RestoreSuccess)' == '' ">True</RestoreSuccess>
     <RestoreTool Condition=" '$(RestoreTool)' == '' ">NuGet</RestoreTool>
     <ProjectAssetsFile Condition=" '$(ProjectAssetsFile)' == '' ">$(MSBuildThisFileDirectory)project.assets.json</ProjectAssetsFile>
-    <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
-    <NuGetPackageFolders Condition=" '$(NuGetPackageFolders)' == '' ">C:\Users\moham\.nuget\packages\</NuGetPackageFolders>
+    <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">/Users/siddharthjain/.nuget/packages/</NuGetPackageRoot>
+    <NuGetPackageFolders Condition=" '$(NuGetPackageFolders)' == '' ">/Users/siddharthjain/.nuget/packages/</NuGetPackageFolders>
     <NuGetProjectStyle Condition=" '$(NuGetProjectStyle)' == '' ">PackageReference</NuGetProjectStyle>
-    <NuGetToolVersion Condition=" '$(NuGetToolVersion)' == '' ">5.8.0</NuGetToolVersion>
+    <NuGetToolVersion Condition=" '$(NuGetToolVersion)' == '' ">5.4.0</NuGetToolVersion>
   </PropertyGroup>
-  <ItemGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <SourceRoot Include="$([MSBuild]::EnsureTrailingSlash($(NuGetPackageFolders)))" />
-  </ItemGroup>
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgMicrosoft_Extensions_Logging_Abstractions Condition=" '$(PkgMicrosoft_Extensions_Logging_Abstractions)' == '' ">C:\Users\moham\.nuget\packages\microsoft.extensions.logging.abstractions\5.0.0</PkgMicrosoft_Extensions_Logging_Abstractions>
-    <PkgMicrosoft_Extensions_Logging Condition=" '$(PkgMicrosoft_Extensions_Logging)' == '' ">C:\Users\moham\.nuget\packages\microsoft.extensions.logging\5.0.0</PkgMicrosoft_Extensions_Logging>
-    <PkgFSharp_Core Condition=" '$(PkgFSharp_Core)' == '' ">C:\Users\moham\.nuget\packages\fsharp.core\5.0.0</PkgFSharp_Core>
-    <PkgDotNetty_Common Condition=" '$(PkgDotNetty_Common)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.common\0.6.0</PkgDotNetty_Common>
-    <PkgDotNetty_Buffers Condition=" '$(PkgDotNetty_Buffers)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.buffers\0.6.0</PkgDotNetty_Buffers>
-    <PkgDotNetty_Transport Condition=" '$(PkgDotNetty_Transport)' == '' ">C:\Users\moham\.nuget\packages\dotnetty.transport\0.6.0</PkgDotNetty_Transport>
-    <PkgAkka Condition=" '$(PkgAkka)' == '' ">C:\Users\moham\.nuget\packages\akka\1.4.11</PkgAkka>
-    <PkgAkka_TestKit Condition=" '$(PkgAkka_TestKit)' == '' ">C:\Users\moham\.nuget\packages\akka.testkit\1.4.11</PkgAkka_TestKit>
-    <PkgAkka_Remote Condition=" '$(PkgAkka_Remote)' == '' ">C:\Users\moham\.nuget\packages\akka.remote\1.4.11</PkgAkka_Remote>
-    <PkgAkka_Persistence Condition=" '$(PkgAkka_Persistence)' == '' ">C:\Users\moham\.nuget\packages\akka.persistence\1.4.11</PkgAkka_Persistence>
-    <PkgAkka_Logger_Serilog Condition=" '$(PkgAkka_Logger_Serilog)' == '' ">C:\Users\moham\.nuget\packages\akka.logger.serilog\1.4.11</PkgAkka_Logger_Serilog>
-    <PkgAkka_FSharp Condition=" '$(PkgAkka_FSharp)' == '' ">C:\Users\moham\.nuget\packages\akka.fsharp\1.4.11</PkgAkka_FSharp>
-    <PkgAkka_DI_Core Condition=" '$(PkgAkka_DI_Core)' == '' ">C:\Users\moham\.nuget\packages\akka.di.core\1.4.11</PkgAkka_DI_Core>
-    <PkgAkka_Cluster Condition=" '$(PkgAkka_Cluster)' == '' ">C:\Users\moham\.nuget\packages\akka.cluster\1.4.11</PkgAkka_Cluster>
   </PropertyGroup>
 </Project>

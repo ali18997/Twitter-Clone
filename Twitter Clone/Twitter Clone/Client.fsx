@@ -84,6 +84,30 @@ type clientMessage(controlFlag, command, payload) =
     member x.getCommand = command
     member x.getPayload = payload
 
+    override this.ToString() = "xxx" // sprintf "Control flag: %b;Command: %s; Payload: %O" controlFlag command payload
+
+
+type wrapper(clientMessage) = 
+    member this.clientMessage = clientMessage
+
+// let stttt = "{\"getControlFlag\":true,\"getCommand\":\"Register\",\"getPayload\":null}"
+// printfn "json is %s" stttt
+
+// let kkkkk = "{\"clientMessage\":{\"getControlFlag\":true,\"getCommand\":\"Register\",\"getPayload\":null}}"
+// printfn "json is %s" kkkkk
+
+let abc = clientMessage(true,"register",[1;2;3])
+printfn "proto is %s" (abc.ToString())
+
+let www = wrapper(abc)
+printfn "www is %A" www
+
+let xyz = JsonConvert.SerializeObject(www)
+printfn "ser is %s" xyz
+
+let mmmm = JsonConvert.DeserializeObject<clientMessage>(xyz)
+printfn "obj is %A" mmmm.getPayload
+
 type subscribedTo(client, subscribedClients) =
     let mutable client: String = client
     let mutable subscribedClients: List<String> = subscribedClients
@@ -192,9 +216,9 @@ let Client (ClientMailbox:Actor<_>) =
 
         //Receive the message
         let! message = ClientMailbox.Receive()
-        //printfn "client %s : %s" ClientMailbox.Self.Path.Name message
+        printfn "client %s : %s" ClientMailbox.Self.Path.Name message
         let msg = JsonConvert.DeserializeObject<clientMessage>(message)
-       // printfn "client %s : %b" ClientMailbox.Self.Path.Name msg.getControlFlag
+        printfn "client %s : %s" ClientMailbox.Self.Path.Name msg.getCommand
 
         if(msg.getControlFlag) then
             if(msg.getCommand = "Register") then

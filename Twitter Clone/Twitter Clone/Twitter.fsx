@@ -8,109 +8,29 @@
 #r "FsPickler.dll"
 #r "FSharp.Core.dll"
 
+#load @"./Messages.fsx"
+#load @"./DataStruc.fsx"
+
 open Akka
 open Akka.FSharp
 open Akka.Actor
 open System
 open System.Diagnostics
+open Messages
+open DataStruc
 
 let system = System.create "system" <| Configuration.load ()
 
 
-type ProcessorMessage = 
-    | InitializeClientCoorinator of int
-    | RegisterAndSubscribe of bool
-    | Operate of bool
-    | UpdateConnections of bool
-    | Terminate of bool
 
-type tweet(sender, tweet, mentions, hashtags) = 
-    inherit Object()
-
-    let mutable sender: String = sender
-    let mutable tweet: String = tweet
-    let mentions: List<String> = mentions
-    let hashtags: List<String> = hashtags
-
-    member x.getSender = sender
-    member x.getTweet = tweet
-    member x.getMentions = mentions
-    member x.getHashtags = hashtags
-
-type serverMessage(command, payload) = 
-    let mutable command: String = command
-    let mutable payload: Object = payload
-
-    member x.getCommand = command
-    member x.getPayload = payload
-
-type clientMessage(controlFlag, command, payload) = 
-    let mutable controlFlag: Boolean = controlFlag
-    let mutable command: String = command
-    let mutable payload: Object = payload
-
-    member x.getControlFlag = controlFlag
-    member x.getCommand = command
-    member x.getPayload = payload
-
-type subscribedTo(client, subscribedClients) =
-    let mutable client: String = client
-    let mutable subscribedClients: List<String> = subscribedClients
-
-    member x.getClient = client
-    member x.getSubscribedClients = subscribedClients
-    member x.addSubscribedClients(newClient) = subscribedClients <- subscribedClients @ [newClient]
-
-type query(typeOf, matching) =
-    inherit Object()
-
-    let mutable typeOf: String = typeOf
-    let mutable matching: String = matching
-
-    member x.getTypeOf = typeOf
-    member x.getMatching = matching
-
-let Twitter = system.ActorSelection("akka://system/user/Twitter")
+let clientAction clientRef controlFlag command payload =
+    let clientMsg = clientMessage(controlFlag, command, payload)
+    clientRef <! clientMsg
 
 let mutable tweets:List<tweet> = []
 let mutable subscribedData:List<subscribedTo> = []
 
-let clientAction clientRef controlFlag command payload =
-    let clientMsg = new clientMessage(controlFlag, command, payload)
-    clientRef <! clientMsg
 
-let clientQuery client typeOf matching =
-    let Client =  system.ActorSelection("akka://system/user/"+  client )
-    let query = new query(typeOf, matching)
-    clientAction Client true "Query" query
-
-let clientRetweet client tweet = 
-    let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Retweet" tweet
-
-let clientTweet sender tweet mentions hashtags = 
-    let tweetMsg = new tweet(sender, tweet, mentions, hashtags)
-    let client =  system.ActorSelection("akka://system/user/"+  sender )
-    clientAction client true "Send Tweet" tweetMsg
-
-let clientSubscribe client subscribeTo = 
-    let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Subscribe" subscribeTo
-
-let clientRegister client = 
-    let clientRef = system.ActorSelection("akka://system/user/" + client)
-    clientAction clientRef true "Register" null
-
-let sendToServer server command payload=
-    let serverMsg = new serverMessage(command, payload)
-    server <! serverMsg
-
-let rec take n list = 
-  match n with
-  | 0 -> []
-  | _ -> List.head list :: take (n - 1) (List.tail list)
-
-//Actor
 let server (serverMailbox:Actor<serverMessage>) = 
     //Actor Loop that will process a message on each iteration
     let mutable client: ActorSelection = null
@@ -144,25 +64,25 @@ let server (serverMailbox:Actor<serverMessage>) =
                             toSend <- [item.getClient] @ toSend
 
             for item3 in toSend do
-                let client =  system.ActorSelection("akka://system/user/"+ item3 )
+                let client =  system.ActorSelection("akka://system/user/"+item3)
                 clientAction client false "Live" tweet
     
         //Receive the message
-        let! msg = serverMailbox.Receive()
-        if msg.getCommand = "Register" then
-            clientName <- (string) msg.getPayload
-            client <- system.ActorSelection("akka://system/user/"+ clientName )
-            clientAction client false "Register" null
+        let! message = serverMailbox.Receive()
 
-        elif msg.getCommand = "Send Tweet" then
-            let tweet:tweet = downcast msg.getPayload
+        if message.getCommand = "Register" then
+            clientName <- (string) message.getPayload
+            client <- system.ActorSelection("akka://system/user/"+clientName)
+            clientAction client false "Register" null
+        elif message.getCommand = "Send Tweet" then
+            let tweet:tweet = downcast message.getPayload
             tweets <- tweets @ [tweet]
             printfn "Tweet Sent"
             sendLive tweet
         
-        elif msg.getCommand = "Subscribe" then
+        elif message.getCommand = "Subscribe" then
             let client1 = clientName
-            let client2 =(string) msg.getPayload
+            let client2 =(string) message.getPayload
             let mutable flag = true
             for item in subscribedData do
                 if (item.getClient.Equals(client1)) then
@@ -173,15 +93,15 @@ let server (serverMailbox:Actor<serverMessage>) =
                 subscribedData <- subscribedData @ [sub]
             printfn "Subscribed"
 
-        elif msg.getCommand = "Retweet" then
-            let tweet:tweet = downcast msg.getPayload
+        elif message.getCommand = "Retweet" then
+            let tweet:tweet = downcast message.getPayload
             let tweet2 = new tweet(clientName, tweet.getTweet, tweet.getMentions, tweet.getHashtags)
             tweets <- tweets @ [tweet2]
             printfn "Retweeted"
             sendLive tweet2
 
-        elif msg.getCommand = "Query" then
-            let query:query = downcast msg.getPayload
+        elif message.getCommand = "Query" then
+            let query:query = downcast message.getPayload
             if query.getTypeOf = "MyMentions" then
                 let mutable mentionedTweetList: List<tweet> = []
                 for tweet in tweets do
@@ -211,6 +131,11 @@ let server (serverMailbox:Actor<serverMessage>) =
                             hashtagTweetList <- hashtagTweetList @ [item]
                 clientAction client false "Hashtags" hashtagTweetList
 
+            else
+                printfn "Unexpected query at server"            
+        else
+            printfn "Unexpected message at server"
+
         return! serverLoop()
     }
 
@@ -224,12 +149,14 @@ let TwitterEngine (EngineMailbox:Actor<serverMessage>) =
     let rec EngineLoop() = actor {
 
         //Receive the message
-        let! msg = EngineMailbox.Receive()
-
-        if msg.getCommand = "Register" then
-            spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
-            let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.getPayload)
-            server <! msg
+        let! message = EngineMailbox.Receive()
+        if message.getCommand="Register" then
+            printfn "hello"
+            spawn system ("serverfor"+(string) message.getPayload) server |> ignore
+            let server = system.ActorSelection("akka://system/user/serverfor"+(string) message.getPayload)
+            server <! message
+        else
+            printfn "Unexpected message at twitter engine"
         
         return! EngineLoop()
     }
@@ -237,9 +164,33 @@ let TwitterEngine (EngineMailbox:Actor<serverMessage>) =
     //Call to start the actor loop
     EngineLoop()
 
-//let mutable liveClients = List.empty
-let mutable coordRef = null
-let mutable liveClients = Set.empty
+let clientQuery client typeOf matching =
+    let Client =  system.ActorSelection("akka://system/user/"+client)
+    let query = query(typeOf, matching)
+    clientAction Client true "Query" query
+
+let clientRetweet client tweet = 
+    let Client =  system.ActorSelection("akka://system/user/"+client)
+    clientAction Client true "Retweet" tweet
+
+let clientTweet sender tweet mentions hashtags = 
+    let tweetMsg = new tweet(sender, tweet, mentions, hashtags)
+    let client =  system.ActorSelection("akka://system/user/"+sender)
+    clientAction client true "Send Tweet" tweetMsg
+
+let clientSubscribe client subscribeTo = 
+    let Client =  system.ActorSelection("akka://system/user/"+client)
+    clientAction Client true "Subscribe" subscribeTo
+
+let clientRegister client = 
+    //printfn "bbb"
+    let clientRef = system.ActorSelection("akka://system/user/"+client)
+    //printfn "%A" clientRef
+    clientAction clientRef true "Register" null
+
+let sendToServer server command payload=
+    //let serverMsg = new serverMessage(command, payload)
+    server <! serverMessage(command, payload)
 
 let constructStringFromTweet (tweet:tweet) = 
     let mutable s = String.Empty
@@ -249,71 +200,11 @@ let constructStringFromTweet (tweet:tweet) =
     for i in tweet.getHashtags do
         s<-s+" "+i
     s
-    //Actor
-let Client (ClientMailbox:Actor<clientMessage>) = 
-    //Actor Loop that will process a message on each iteration
 
-    let mutable server: IActorRef = null
-
-    let ClientToServer server command payload = 
-        if server <> null then 
-            sendToServer server command payload
-        else 
-            printfn "Not Registered"
-
-    let rec ClientLoop() = actor {
-
-        //Receive the message
-        let! msg = ClientMailbox.Receive()
-
-        if(msg.getControlFlag) then
-            if(msg.getCommand = "Register") then
-                sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
-            elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || 
-                    msg.getCommand = "Retweet" || msg.getCommand = "Query") then
-                    ClientToServer server msg.getCommand msg.getPayload
-        else
-            if(msg.getCommand = "Register") then
-                server <- ClientMailbox.Sender()
-                printfn "%A Registered" ClientMailbox.Self.Path.Name
-
-            elif(msg.getCommand = "MyMentions") then
-                let list:List<tweet> = downcast msg.getPayload
-                let mutable ll = List.map (constructStringFromTweet) list
-                if ll.Length>10 then
-                    ll<-take 10 ll
-                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name ll
- 
-            elif(msg.getCommand = "Subscribed") then
-                let list:List<tweet> = downcast msg.getPayload
-                let mutable ll = List.map (constructStringFromTweet) list
-                if ll.Length>10 then
-                    ll<-take 10 ll
-                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name ll
-
-            elif(msg.getCommand = "Hashtags") then
-                let list:List<tweet> = downcast msg.getPayload
-                let mutable ll = List.map (constructStringFromTweet) list
-                if ll.Length>10 then
-                    ll<-take 10 ll
-                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name ll
-
-            elif(msg.getCommand = "Live") then 
-                if (Set.contains ((int) ClientMailbox.Self.Path.Name) liveClients) then
-                    let liveTweet:tweet = downcast msg.getPayload
-                    let str = constructStringFromTweet liveTweet
-                    printfn "%s Live Tweet Received %s" ClientMailbox.Self.Path.Name str
-
-
-        return! ClientLoop()
-    }
-
-    //Call to start the actor loop
-    ClientLoop()
-
-let clientSpawnRegister client = 
-    spawn system client Client |> ignore
-    clientRegister client
+let rec take n list = 
+  match n with
+  | 0 -> []
+  | _ -> List.head list :: take (n - 1) (List.tail list)
 
 let delay num = 
     System.Threading.Thread.Sleep(num * 1000)
@@ -327,29 +218,94 @@ type System.Random with
     member this.GetValues(minValue, maxValue) =
         Seq.initInfinite (fun _ -> this.Next(minValue, maxValue))
 
-// let r = System.Random()
-// let nums = r.GetValues(1, 1000) |> Seq.take 10
-// printfn "%A" nums
-
-// let random = System.Random()
-// let x = random.Next(1,6)
-// printfn "%d" x
-
 let generateRandomSubSet min max sizeOfSubset =  
     let r = System.Random()
     let nums = r.GetValues(min, max) |> Seq.take sizeOfSubset
     Set.ofSeq nums
 
-// let ll = generateRandomSubSet 1 5 2 
-// printfn "%A" ll
-
 let generateRandomNumber x y = 
     let random = System.Random()
     random.Next(x,y+1)
 
-let mutable cycle = 0
 
-let ClientCooridnator (mailbox: Actor<_>) =
+
+let Twitter = system.ActorSelection("akka://system/user/Twitter")
+let mutable liveClients = Set.empty
+    //Actor
+let Client (ClientMailbox:Actor<clientMessage>) = 
+    //Actor Loop that will process a message on each iteration
+
+    let mutable server: IActorRef = null
+    let mutable tweetList:List<tweet> = List.empty
+
+    let ClientToServer server command payload = 
+        if server <> null then 
+            sendToServer server command payload
+        else 
+            printfn "Not Registered"
+
+    let rec ClientLoop() = actor {
+
+        //Receive the message
+        let! message = ClientMailbox.Receive()
+
+        if message.getControlFlag then 
+            if message.getCommand="Register" then
+                printfn "%s" ClientMailbox.Self.Path.Name
+                sendToServer Twitter "Register" ClientMailbox.Self.Path.Name
+            elif (message.getCommand = "Send Tweet" || message.getCommand = "Subscribe" || message.getCommand = "Query") then
+                ClientToServer server message.getCommand message.getPayload
+            else
+                if(not (tweetList.IsEmpty)) then 
+                    let randomIndex = generateRandomNumber 0 (tweetList.Length-1)
+                    ClientToServer server message.getCommand tweetList.[randomIndex]
+        else
+            if(message.getCommand = "Register") then
+                server <- ClientMailbox.Sender()
+                printfn "%A Registered" ClientMailbox.Self.Path.Name
+
+            elif(message.getCommand = "MyMentions") then
+                let list:List<tweet> = downcast message.getPayload
+                let mutable ll = List.map (constructStringFromTweet) list
+                if ll.Length>10 then
+                    ll<-take 10 ll
+                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name ll
+ 
+            elif(message.getCommand = "Subscribed") then
+                let list:List<tweet> = downcast message.getPayload
+                let mutable ll = List.map (constructStringFromTweet) list
+                if ll.Length>10 then
+                    ll<-take 10 ll
+                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name ll
+
+            elif(message.getCommand = "Hashtags") then
+                let list:List<tweet> = downcast message.getPayload
+                let mutable ll = List.map (constructStringFromTweet) list
+                if ll.Length>10 then
+                    ll<-take 10 ll
+                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name ll
+
+            elif(message.getCommand = "Live") then
+                let liveTweet:tweet = downcast message.getPayload
+                tweetList<-tweetList @ [liveTweet] 
+                if (Set.contains ((int) ClientMailbox.Self.Path.Name) liveClients) then
+                    let str = constructStringFromTweet liveTweet
+                    printfn "%s Live Tweet Received %s" ClientMailbox.Self.Path.Name str
+            
+            else
+                printfn "Unexpected client message in Client Actor"
+
+        return! ClientLoop()
+    }
+
+    //Call to start the actor loop
+    ClientLoop()
+
+let clientSpawnRegister client = 
+    spawn system client Client |> ignore
+    clientRegister client
+
+let ClientCoordinator (mailbox: Actor<ClientCoordinatorMessage>) =
     let mutable noOfClients = 0
     //let mutable liveClients = Set.empty
     let mutable clientList = List.empty
@@ -357,20 +313,20 @@ let ClientCooridnator (mailbox: Actor<_>) =
     let tweetString = "Twitter is an American microblogging and social networking service on which users post and interact with messages known as tweets."
     let hashTagList = ["#twitter";"F#";"#DOS";"#covid19";"#lockdown";"#Akka"]
     //let m = system.Scheduler.ScheduleTellRepeatedlyCancelable(TimeSpan.FromMilliseconds(5000.0),TimeSpan.FromMilliseconds(5000.0),mailbox.Self,UpdateConnections(true),mailbox.Self)
-    let t = system.Scheduler.ScheduleTellOnceCancelable(TimeSpan.FromSeconds(10.0),mailbox.Self,Terminate(true),mailbox.Self)
+    let t = system.Scheduler.ScheduleTellOnceCancelable(TimeSpan.FromSeconds(10.0),mailbox.Self,ClientCoordinatorMessage("Terminate",noOfClients),mailbox.Self)
     let rec loop () = actor {
 
         let! message = mailbox.Receive ()
-        match message with
-        | InitializeClientCoorinator(numClients) -> 
-            noOfClients <- numClients
-            clientList <- List.ofSeq [1..noOfClients]
-            mailbox.Self <! RegisterAndSubscribe(true)
 
-        | RegisterAndSubscribe(bool) ->
-            //Register all clients
+        if message.Command="InitializeClientCoorinator" then
+            noOfClients <- message.NoOfClients
+            clientList <- List.ofSeq [1..noOfClients]
+            mailbox.Self <! ClientCoordinatorMessage("RegisterAndSubscribe",noOfClients)
+        elif message.Command="RegisterAndSubscribe" then
+            //printfn "xxx"
             for i=1 to noOfClients do
                 clientSpawnRegister ((string) i)
+            //printfn "regis %d" i
 
             delay 2
             //Subscription as per zipf distribution
@@ -382,18 +338,16 @@ let ClientCooridnator (mailbox: Actor<_>) =
                     //let r = System.Random()
                     //let nums = r.GetValues(1, noOfClients+1) |> Seq.take noOfSubscribers
                     let nums = generateRandomSubSet 1 (noOfClients+1) noOfSubscribers
-                    printfn "Client %d has subscribers %A" i nums
+                    //printfn "Client %d has subscribers %A" i nums
                     for j in nums do
                         if (j<>i) then
                             clientSubscribe ((string) j) ((string) i)
             delay 2
             //cycle<-cycle+1
-            mailbox.Self <! UpdateConnections(true)
-            mailbox.Self <! Operate(bool)
-
-        | Operate(bool) ->
-            cycle<-cycle+1
-            let choices = [1;3]
+            mailbox.Self <! ClientCoordinatorMessage("UpdateConnections",noOfClients)
+            mailbox.Self <! ClientCoordinatorMessage("Operate",noOfClients)
+        elif message.Command="Operate" then
+            let choices = [1;2;3]
             //printfn "Live clients = %A" liveClients
             for onlineClient in liveClients do
                 //printfn "Online client = %d" onlineClient
@@ -420,10 +374,11 @@ let ClientCooridnator (mailbox: Actor<_>) =
                             clientTweet ((string) onlineClient) tweetStr (Set.toList list2) [hashTagList.[hIndex]]
                         else if randomChoice=2 then
                             //printfn "i am here" 
-                            if (not (tweets.IsEmpty)) then    
-                                let ri = generateRandomNumber 0 (tweets.Length-1)
-                                //printfn "index is %d" ri
-                                clientRetweet ((string) onlineClient) tweets.[ri]
+                            // if (not (tweets.IsEmpty)) then    
+                            //     let ri = generateRandomNumber 0 (tweets.Length-1)
+                            //     //printfn "index is %d" ri
+                            clientRetweet ((string) onlineClient) null
+
                         else
                             let queryChoice = generateRandomNumber 1 3
                             if queryChoice=1 then
@@ -433,20 +388,18 @@ let ClientCooridnator (mailbox: Actor<_>) =
                             else
                                 let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
                                 clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
-
-            mailbox.Self <! UpdateConnections(true)         
-            mailbox.Self <! Operate(bool)
-
-        | UpdateConnections(bool) ->
+            
+            mailbox.Self <! ClientCoordinatorMessage("UpdateConnections",noOfClients)
+            mailbox.Self <! ClientCoordinatorMessage("Operate",noOfClients)
+        elif message.Command="UpdateConnections" then
             let no = generateRandomNumber 1 noOfClients
             liveClients <- generateRandomSubSet 1 (noOfClients+1) no
-
-        | Terminate(bool) ->
-            //m.Cancel()
-            printfn "Cycles = %d" cycle
+        elif message.Command="Terminate" then
             t.Cancel()
             printfn "Simulation Completed. Press Any key to close"
             system.Terminate() |> ignore
+        else
+            printfn "Crap"
 
         return! loop()
     }
@@ -457,9 +410,8 @@ let ClientCooridnator (mailbox: Actor<_>) =
 
 spawn system "Twitter" TwitterEngine |> ignore
 
-let cc = spawn system "CC" ClientCooridnator
-coordRef <- cc
-cc<!InitializeClientCoorinator(1000)
+let cc = spawn system "CC" ClientCoordinator
+cc<!ClientCoordinatorMessage("InitializeClientCoorinator",1000)
 
 System.Console.ReadKey() |> ignore
 

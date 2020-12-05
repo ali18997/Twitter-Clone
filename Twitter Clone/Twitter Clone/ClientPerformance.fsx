@@ -33,102 +33,6 @@ let config =
 
 let system = ActorSystem.Create("system", config)
 
-// type ProcessorMessage = 
-// //    | InitializeClientCoorinator of int
-// //    | RegisterAndSubscribe of bool
-// //    | Operate of bool
-// //    | UpdateConnections of bool
-//     | Terminate of bool
-
-
-// type InitializeClientCoorinator(numberOfClients) = 
-//     let command: String = "InitializeClientCoorinator"
-//     let noOfClients: int = numberOfClients
-
-// type ClientCoordinatorMessage(command,noOfClients) = 
-//     member this.Command = command
-//     member this.NoOfClients = noOfClients
-
-// type Terminate() = 
-//     let command: String = "Terminate"
-
-// type RegisterAndSubscribe() =
-//     let command: String = "RegisterAndSubscribe"
-
-// type Operate() = 
-//     let command: String = "Operate"
-
-// type UpdateConnections() = 
-//     let command: String = "UpdateConnections"
-
-// type tweet(sender, tweet, mentions, hashtags) = 
-//     inherit Object()
-
-//     let mutable sender: String = sender
-//     let mutable tweet: String = tweet
-//     let mentions: List<String> = mentions
-//     let hashtags: List<String> = hashtags
-
-//     member x.getSender = sender
-//     member x.getTweet = tweet
-//     member x.getMentions = mentions
-//     member x.getHashtags = hashtags
-
-// type serverMessage(command, payload) = 
-//     let mutable command: String = command
-//     let mutable payload: Object = payload
-
-//     member x.getCommand = command
-//     member x.getPayload = payload
-
-// type clientMessage(controlFlag, command, payload) = 
-//     let mutable controlFlag: Boolean = controlFlag
-//     let mutable command: String = command
-//     let mutable payload: Object = payload
-
-//     member x.getControlFlag = controlFlag
-//     member x.getCommand = command
-//     member x.getPayload = payload
-
-
-// type wrapper(clientMessage) = 
-//     member this.clientMessage = clientMessage
-
-// let stttt = "{\"getControlFlag\":true,\"getCommand\":\"Register\",\"getPayload\":null}"
-// printfn "json is %s" stttt
-
-// let kkkkk = "{\"clientMessage\":{\"getControlFlag\":true,\"getCommand\":\"Register\",\"getPayload\":null}}"
-// printfn "json is %s" kkkkk
-
-// let abc = clientMessage(true,"register",[1;2;3])
-// printfn "proto is %s" (abc.ToString())
-
-// let www = wrapper(abc)
-// printfn "www is %A" www
-
-// let xyz = JsonConvert.SerializeObject(www)
-// printfn "ser is %s" xyz
-
-// let mmmm = JsonConvert.DeserializeObject<clientMessage>(xyz)
-// printfn "obj is %A" mmmm.getPayload
-
-// type subscribedTo(client, subscribedClients) =
-//     let mutable client: String = client
-//     let mutable subscribedClients: List<String> = subscribedClients
-
-//     member x.getClient = client
-//     member x.getSubscribedClients = subscribedClients
-//     member x.addSubscribedClients(newClient) = subscribedClients <- subscribedClients @ [newClient]
-
-// type query(typeOf, matching) =
-//     inherit Object()
-
-//     let mutable typeOf: String = typeOf
-//     let mutable matching: String = matching
-
-//     member x.getTypeOf = typeOf
-//     member x.getMatching = matching
-
 let clientAction clientRef controlFlag command payload =
     let clientMsg = clientMessage()
     clientMsg.controlFlag <- controlFlag
@@ -219,6 +123,8 @@ let generateRandomNumber x y =
 let Twitter = system.ActorSelection("akka.tcp://system@localhost:9001/user/Twitter")
 let mutable liveClients = Set.empty
 
+let mutable CCRef:IActorRef = null
+
 let Client (ClientMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
 
@@ -239,7 +145,7 @@ let Client (ClientMailbox:Actor<_>) =
 
         if message.controlFlag then 
             if message.command="Register" then
-                printfn "%s" ClientMailbox.Self.Path.Name
+                //printfn "%s" ClientMailbox.Self.Path.Name
                 sendToServer Twitter "Register" ClientMailbox.Self.Path.Name
             elif (message.command = "Send Tweet" || message.command = "Subscribe" || message.command = "Query") then
                 //let query:query = JsonConvert.DeserializeObject<payload> ((string)message.payload)
@@ -253,35 +159,57 @@ let Client (ClientMailbox:Actor<_>) =
         else
             if(message.command = "Register") then
                 server <- ClientMailbox.Sender()
-                printfn "%A Registered" ClientMailbox.Self.Path.Name
+                //printfn "%A Registered" ClientMailbox.Self.Path.Name
 
             elif(message.command = "MyMentions") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)message.payload)
                 let mutable ll = List.map (constructStringFromTweet) list
                 if ll.Length>10 then
                     ll<-take 10 ll
-                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name ll
+                //printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name ll
+                let clientCoorMsg = new ClientCoordinatorMessage()
+                clientCoorMsg.Command <- "MentionResponse"
+                clientCoorMsg.NoOfClients <- 0
+                let json = JsonConvert.SerializeObject(clientCoorMsg)
+                CCRef<!json
+
+            elif(message.command = "Tweeted") then
+                let clientCoorMsg = new ClientCoordinatorMessage()
+                clientCoorMsg.Command <- "TweetResponse"
+                clientCoorMsg.NoOfClients <- 0
+                let json = JsonConvert.SerializeObject(clientCoorMsg)
+                CCRef<!json
  
             elif(message.command = "Subscribed") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)message.payload)
                 let mutable ll = List.map (constructStringFromTweet) list
                 if ll.Length>10 then
                     ll<-take 10 ll
-                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name ll
+                //printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name ll
+                let clientCoorMsg = new ClientCoordinatorMessage()
+                clientCoorMsg.Command <- "SubscribedResponse"
+                clientCoorMsg.NoOfClients <- 0
+                let json = JsonConvert.SerializeObject(clientCoorMsg)
+                CCRef<!json
 
             elif(message.command = "Hashtags") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)message.payload)
                 let mutable ll = List.map (constructStringFromTweet) list
                 if ll.Length>10 then
                     ll<-take 10 ll
-                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name ll
+                //printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name ll
+                let clientCoorMsg = new ClientCoordinatorMessage()
+                clientCoorMsg.Command <- "HashResponse"
+                clientCoorMsg.NoOfClients <- 0
+                let json = JsonConvert.SerializeObject(clientCoorMsg)
+                CCRef<!json
 
             elif(message.command = "Live") then
                 let liveTweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)message.payload)
                 tweetList<-tweetList @ [liveTweet] 
-                if (Set.contains ((int) ClientMailbox.Self.Path.Name) liveClients) then
-                    let str = constructStringFromTweet liveTweet
-                    printfn "%s Live Tweet Received %s" ClientMailbox.Self.Path.Name str
+                // if (Set.contains ((int) ClientMailbox.Self.Path.Name) liveClients) then
+                //     let str = constructStringFromTweet liveTweet
+                //     printfn "%s Live Tweet Received %s" ClientMailbox.Self.Path.Name str
             
             else
                 printfn "Unexpected client message in Client Actor"
@@ -297,10 +225,28 @@ let clientSpawnRegister client =
     spawn system client Client |> ignore
     clientRegister client
 
+let mutable noReq = 0
+
 let ClientCoordinator (mailbox: Actor<_>) =
     let mutable noOfClients = 0
     //let mutable liveClients = Set.empty
     let mutable clientList = List.empty
+
+    let mutable totalRequests = 0
+    let mutable totalTweets = 0
+    let mutable totalSubscribes = 0
+    let mutable totalMentions = 0
+    let mutable totalHashes = 0
+
+    let mutable netTweetTime = 0L
+    let mutable netMentionTime = 0L
+    let mutable netSubscribeTime = 0L
+    let mutable netHashTime = 0L
+
+    let tweetTimer = Stopwatch()
+    let mentionsTimer = Stopwatch()
+    let subscribeTimer = Stopwatch()
+    let hashTimer = Stopwatch()
 
     let tweetString = "Twitter is an American microblogging and social networking service on which users post and interact with messages known as tweets."
     let hashTagList = ["#twitter";"F#";"#DOS";"#covid19";"#lockdown";"#Akka"]
@@ -320,7 +266,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
             let json = JsonConvert.SerializeObject(clientCoorMsg)
             mailbox.Self <! json
         elif message.Command="RegisterAndSubscribe" then
-            printfn "xxx"
+            //printfn "xxx"
             for i=1 to noOfClients do
                 clientSpawnRegister ((string) i)
             //printfn "regis %d" i
@@ -353,70 +299,110 @@ let ClientCoordinator (mailbox: Actor<_>) =
             let json = JsonConvert.SerializeObject(clientCoorMsg2)
             mailbox.Self <! json
         elif message.Command="Operate" then
-            let choices = [1;2;3]
-            //printfn "Live clients = %A" liveClients
-            for onlineClient in liveClients do
-                //printfn "Online client = %d" onlineClient
-                let rank = (noOfClients-1)/onlineClient
-                if rank<>0 then
-                    for j=1 to rank do
-                        let randomChoice = getRandArrElement choices
-                        if randomChoice=1 then 
-                            let noOfMentions = generateRandomNumber 1 3
-                            let mentions = generateRandomSubSet 1 (noOfClients+1) noOfMentions
+            if totalRequests>=noReq then
+                //delay 15
+                printfn ""
+                printfn "Total tweets = %d" totalTweets
+                printfn "Total tweet time is %d" netTweetTime
+                printfn "Average time per tweet is %f milliseconds" ((double)netTweetTime/(double)totalTweets);
+                printfn "Total mentions = %d" totalMentions
+                printfn "Total mentions time is %d" netMentionTime
+                printfn "Average time per mention query is %f milliseconds" ((double)netMentionTime/(double)totalMentions);
+                printfn "Total subscriptions = %d" totalSubscribes
+                printfn "Total subscribe time is %d" netSubscribeTime
+                printfn "Average time per subscribed query is %f milliseconds" ((double)netTweetTime/(double)totalTweets);
+                printfn "Total hashes = %d" totalHashes
+                printfn "Total hash time is %d" netHashTime
+                printfn "Average time per hashtag query is %f milliseconds" ((double)netHashTime/(double)totalHashes);
+                printfn "Simulation Completed. Press Any key to close"
+                system.Terminate() |> ignore
+            else
+                let choices = [1;3]
+                //printfn "Live clients = %A" liveClients
+                for onlineClient in liveClients do
+                    //printfn "Online client = %d" onlineClient
+                    let rank = (noOfClients-1)/onlineClient
+                    if rank<>0 then
+                        for j=1 to rank do
+                            let randomChoice = getRandArrElement choices
+                            if randomChoice=1 then 
+                                let noOfMentions = generateRandomNumber 1 3
+                                let mentions = generateRandomSubSet 1 (noOfClients+1) noOfMentions
 
-                            //printfn "Mentions:%A" mentions
+                                //printfn "Mentions:%A" mentions
 
-                            let list2 = mentions |> Set.map (fun x -> x.ToString());
+                                let list2 = mentions |> Set.map (fun x -> x.ToString());
 
-                            //printfn "0:%d" (hashTagList.Length-1)
-                            let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
-                            //printfn "hIndex:%d" hIndex
-
-                            let index = generateRandomNumber 0 (tweetString.Length-1)
-                            //printfn "index:%d" index
-
-                            let tweetStr = tweetString.Substring(index)
-                            clientTweet ((string) onlineClient) tweetStr (Set.toList list2) [hashTagList.[hIndex]]
-                        else if randomChoice=2 then
-                            //printfn "i am here" 
-                            // if (not (tweets.IsEmpty)) then    
-                            //     let ri = generateRandomNumber 0 (tweets.Length-1)
-                            //     //printfn "index is %d" ri
-                            clientRetweet ((string) onlineClient) null
-
-                        else
-                            let queryChoice = generateRandomNumber 1 3
-                            if queryChoice=1 then
-                                clientQuery ((string) onlineClient) "MyMentions" null
-                            else if queryChoice=2 then
-                                clientQuery ((string) onlineClient) "Subscribed" null
-                            else
+                                //printfn "0:%d" (hashTagList.Length-1)
                                 let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
-                                clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
-            
-            delay 3
-            
-            let clientCoorMsg1 = new ClientCoordinatorMessage()
-            clientCoorMsg1.Command <- "UpdateConnections"
-            clientCoorMsg1.NoOfClients <- noOfClients
-            let json = JsonConvert.SerializeObject(clientCoorMsg1)
-            mailbox.Self <! json
+                                //printfn "hIndex:%d" hIndex
 
-            let clientCoorMsg2 = new ClientCoordinatorMessage()
-            clientCoorMsg2.Command <- "Operate"
-            clientCoorMsg2.NoOfClients <- noOfClients
-            let json = JsonConvert.SerializeObject(clientCoorMsg2)
-            mailbox.Self <! json
+                                let index = generateRandomNumber 0 (tweetString.Length-1)
+                                //printfn "index:%d" index
+
+                                let tweetStr = tweetString.Substring(index)
+                                tweetTimer.Start()
+                                clientTweet ((string) onlineClient) tweetStr (Set.toList list2) [hashTagList.[hIndex]]
+                            else if randomChoice=2 then
+                                //printfn "i am here" 
+                                // if (not (tweets.IsEmpty)) then    
+                                //     let ri = generateRandomNumber 0 (tweets.Length-1)
+                                //     //printfn "index is %d" ri
+                                clientRetweet ((string) onlineClient) null
+
+                            else
+                                let queryChoice = generateRandomNumber 1 3
+                                if queryChoice=1 then
+                                    mentionsTimer.Start()
+                                    clientQuery ((string) onlineClient) "MyMentions" null
+                                else if queryChoice=2 then
+                                    subscribeTimer.Start()
+                                    clientQuery ((string) onlineClient) "Subscribed" null
+                                else
+                                    let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
+                                    hashTimer.Start()
+                                    clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
+                delay 2
+                let clientCoorMsg1 = new ClientCoordinatorMessage()
+                clientCoorMsg1.Command <- "UpdateConnections"
+                clientCoorMsg1.NoOfClients <- noOfClients
+                let json = JsonConvert.SerializeObject(clientCoorMsg1)
+                mailbox.Self <! json
+
+                let clientCoorMsg2 = new ClientCoordinatorMessage()
+                clientCoorMsg2.Command <- "Operate"
+                clientCoorMsg2.NoOfClients <- noOfClients
+                let json = JsonConvert.SerializeObject(clientCoorMsg2)
+                mailbox.Self <! json
         elif message.Command="UpdateConnections" then
             let no = generateRandomNumber 1 noOfClients
             liveClients <- generateRandomSubSet 1 (noOfClients+1) no
-        elif message.Command="Terminate" then
-            //t.Cancel()
-            printfn "Simulation Completed. Press Any key to close"
-            system.Terminate() |> ignore
+        elif message.Command="TweetResponse" then
+            netTweetTime<-netTweetTime+tweetTimer.ElapsedMilliseconds
+            totalRequests<-totalRequests+1
+            totalTweets<-totalTweets+1
+            tweetTimer.Reset()
+        elif message.Command="MentionResponse" then
+            netMentionTime<-netMentionTime+mentionsTimer.ElapsedMilliseconds
+            totalRequests<-totalRequests+1
+            totalMentions<-totalMentions+1
+            mentionsTimer.Reset()
+        elif message.Command="SubscribedResponse" then
+            netSubscribeTime<-netSubscribeTime+subscribeTimer.ElapsedMilliseconds
+            totalRequests<-totalRequests+1
+            totalSubscribes<-totalSubscribes+1
+            subscribeTimer.Reset()
+        elif message.Command="HashResponse" then
+            netHashTime<-netHashTime+hashTimer.ElapsedMilliseconds
+            totalRequests<-totalRequests+1
+            totalHashes<-totalHashes+1
+            hashTimer.Reset()
+        // elif message.Command="Terminate" then
+        //     //t.Cancel()
+        //     printfn "Simulation Completed. Press Any key to close"
+        //     system.Terminate() |> ignore
         else
-            printfn "Crap"
+            printfn "Incorrect Client Coordinator message"
 
         return! loop()
     }
@@ -430,10 +416,13 @@ let ClientCoordinator (mailbox: Actor<_>) =
 // let cc = spawn system "CC" <| props(actorOf ClientCoordinator)
 
 let cc = spawn system "CC" ClientCoordinator
+CCRef<-cc
 let clientCoorMsg = new ClientCoordinatorMessage()
 clientCoorMsg.Command <- "InitializeClientCoorinator"
-clientCoorMsg.NoOfClients <- 2000
+clientCoorMsg.NoOfClients <- 5000
 let json = JsonConvert.SerializeObject(clientCoorMsg)
+noReq<-5000
 cc<!json
+
 
 System.Console.ReadKey() |> ignore

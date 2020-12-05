@@ -93,11 +93,6 @@ let clientAction clientRef controlFlag command payload =
 //     member x.getTypeOf = typeOf
 //     member x.getMatching = matching
 
-let rec take n list = 
-  match n with
-  | 0 -> []
-  | _ -> List.head list :: take (n - 1) (List.tail list)
-
 let mutable tweets:List<tweet> = []
 let mutable subscribedData:List<subscribedTo> = []
 
@@ -151,8 +146,14 @@ let server (serverMailbox:Actor<_>) =
         elif message.command = "Send Tweet" then
             let tweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)message.payload)
             tweets <- tweets @ [tweet]
-            printfn "Tweet Sent"
+            //printfn "Tweet Sent"
             sendLive tweet
+            let clientMsg = new clientMessage()
+            clientMsg.command<-"Tweeted"
+            clientMsg.controlFlag<-false
+            clientMsg.payload<-null
+            let json = JsonConvert.SerializeObject(clientMsg)
+            serverMailbox.Sender()<!json
         
         elif message.command = "Subscribe" then
             let client1 = clientName
@@ -168,7 +169,7 @@ let server (serverMailbox:Actor<_>) =
                 sub.client <- client1
                 sub.subscribedClients <- [client2]
                 subscribedData <- subscribedData @ [sub]
-            printfn "Subscribed"
+            //printfn "Subscribed"
 
         elif message.command = "Retweet" then
             let tweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)message.payload)
@@ -178,7 +179,7 @@ let server (serverMailbox:Actor<_>) =
             tweet2.mentions <- tweet.mentions
             tweet2.hashtags <- tweet.hashtags
             tweets <- tweets @ [tweet2]
-            printfn "Retweeted"
+            //printfn "Retweeted"
             sendLive tweet2
 
         elif message.command = "Query" then
@@ -190,8 +191,6 @@ let server (serverMailbox:Actor<_>) =
                     for mention in mentions do
                         if mention = clientName then
                             mentionedTweetList <- mentionedTweetList @ [tweet]
-                if mentionedTweetList.Length>10 then
-                    mentionedTweetList<-take 10 mentionedTweetList
                 clientAction client false "MyMentions" mentionedTweetList
                 
             elif query.typeOf = "Subscribed" then
@@ -203,8 +202,6 @@ let server (serverMailbox:Actor<_>) =
                             for tweet in tweets do
                                 if tweet.sender = subClient then
                                     subscribedTweetList <- subscribedTweetList @ [tweet]
-                if subscribedTweetList.Length>10 then
-                    subscribedTweetList<-take 10 subscribedTweetList
                 clientAction client false "Subscribed" subscribedTweetList
 
             elif query.typeOf = "Hashtags" then
@@ -214,8 +211,6 @@ let server (serverMailbox:Actor<_>) =
                     for hashtag in list do
                         if hashtag = query.matching then
                             hashtagTweetList <- hashtagTweetList @ [item]
-                if hashtagTweetList.Length>10 then
-                    hashtagTweetList<-take 10 hashtagTweetList
                 clientAction client false "Hashtags" hashtagTweetList
 
             else
@@ -237,18 +232,18 @@ let TwitterEngine (EngineMailbox:Actor<_>) =
         //Receive the message
         let! msg = EngineMailbox.Receive()
         let message = JsonConvert.DeserializeObject<serverMessage>msg
-        printfn "At twitter engine %s" message.command
+        //printfn "At twitter engine %s" message.command
         if message.command="Register" then
-            printfn "hello"
+            //printfn "hello"
             let nn = JsonConvert.DeserializeObject<String> ((string)message.payload)
             spawn system ("serverfor"+nn) server 
             
             //let server = system.ActorSelection("akka.tcp://system@localhost:9001/user/serverfor"+nn)
             let server = system.ActorSelection("akka://system/user/serverfor"+nn)
-            printfn "%A" server
+            //printfn "%A" server
             let json = JsonConvert.SerializeObject(message)
             server <! json
-            printfn "Sent"
+            //printfn "Sent"
         else
             printfn "Unexpected message at twitter engine"
         

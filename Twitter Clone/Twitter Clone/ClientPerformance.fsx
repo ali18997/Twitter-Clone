@@ -302,22 +302,23 @@ let ClientCoordinator (mailbox: Actor<_>) =
             if totalRequests>=noReq then
                 //delay 15
                 printfn ""
-                printfn "Total tweets = %d" totalTweets
-                printfn "Total tweet time is %d" netTweetTime
+                //printfn "Total tweets = %d" totalTweets
+                //printfn "Total tweet time is %d" netTweetTime
+
                 printfn "Average time per tweet is %f milliseconds" ((double)netTweetTime/(double)totalTweets);
-                printfn "Total mentions = %d" totalMentions
-                printfn "Total mentions time is %d" netMentionTime
+                //printfn "Total mentions = %d" totalMentions
+                //printfn "Total mentions time is %d" netMentionTime
                 printfn "Average time per mention query is %f milliseconds" ((double)netMentionTime/(double)totalMentions);
-                printfn "Total subscriptions = %d" totalSubscribes
-                printfn "Total subscribe time is %d" netSubscribeTime
+                //printfn "Total subscriptions = %d" totalSubscribes
+                //printfn "Total subscribe time is %d" netSubscribeTime
                 printfn "Average time per subscribed query is %f milliseconds" ((double)netTweetTime/(double)totalTweets);
-                printfn "Total hashes = %d" totalHashes
-                printfn "Total hash time is %d" netHashTime
+                //printfn "Total hashes = %d" totalHashes
+                //printfn "Total hash time is %d" netHashTime
                 printfn "Average time per hashtag query is %f milliseconds" ((double)netHashTime/(double)totalHashes);
                 printfn "Simulation Completed. Press Any key to close"
                 system.Terminate() |> ignore
             else
-                let choices = [1;3]
+                let choices = [1;2;3]
                 //printfn "Live clients = %A" liveClients
                 for onlineClient in liveClients do
                     //printfn "Online client = %d" onlineClient
@@ -415,13 +416,19 @@ let ClientCoordinator (mailbox: Actor<_>) =
 
 // let cc = spawn system "CC" <| props(actorOf ClientCoordinator)
 
+let args : string array = fsi.CommandLineArgs |> Array.tail
+
+//Extract and convert to Int
+let numClients = args.[0]|> int
+let numReq = args.[1]|> int
+
 let cc = spawn system "CC" ClientCoordinator
 CCRef<-cc
 let clientCoorMsg = new ClientCoordinatorMessage()
 clientCoorMsg.Command <- "InitializeClientCoorinator"
-clientCoorMsg.NoOfClients <- 5000
+clientCoorMsg.NoOfClients <- numClients
 let json = JsonConvert.SerializeObject(clientCoorMsg)
-noReq<-5000
+noReq<-numReq
 cc<!json
 
 

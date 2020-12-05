@@ -24,7 +24,6 @@ let config =
     Configuration.parse
         @"akka {
             actor.provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
-            maximum-payload-bytes = 200000 bytes
             remote.helios.tcp {
                 hostname = ""localhost""
                 port = 9002
@@ -395,7 +394,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
                                 let hIndex = generateRandomNumber 0 (hashTagList.Length-1)
                                 clientQuery ((string) onlineClient) "Hashtags" (hashTagList.Item(hIndex))
             
-            delay 3
+            delay 5
             
             let clientCoorMsg1 = new ClientCoordinatorMessage()
             clientCoorMsg1.Command <- "UpdateConnections"

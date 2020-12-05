@@ -30,7 +30,6 @@ let config =
     Configuration.parse
         @"akka {
             actor.provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
-            maximum-payload-bytes = 200000 bytes
             remote.helios.tcp {
                 hostname = ""localhost""
                 port = 9001
@@ -39,43 +38,6 @@ let config =
 
 let system = ActorSystem.Create("system", config)
 
-// type serverMessage(command, payload) = 
-//     let mutable command: String = command
-//     let mutable payload: Object = payload
-
-//     member x.getCommand = command
-//     member x.getPayload = payload
-
-// type tweet(sender, tweet, mentions, hashtags) = 
-//     inherit Object()
-
-//     let mutable sender: String = sender
-//     let mutable tweet: String = tweet
-//     let mentions: List<String> = mentions
-//     let hashtags: List<String> = hashtags
-
-//     member x.getSender = sender
-//     member x.getTweet = tweet
-//     member x.getMentions = mentions
-//     member x.getHashtags = hashtags
-
-// type subscribedTo(client, subscribedClients) =
-//     let mutable client: String = client
-//     let mutable subscribedClients: List<String> = subscribedClients
-
-//     member x.getClient = client
-//     member x.getSubscribedClients = subscribedClients
-//     member x.addSubscribedClients(newClient) = subscribedClients <- subscribedClients @ [newClient]
-
-// type clientMessage(controlFlag, command, payload) = 
-//     let mutable controlFlag: Boolean = controlFlag
-//     let mutable command: String = command
-//     let mutable payload: Object = payload
-
-//     member x.getControlFlag = controlFlag
-//     member x.getCommand = command
-//     member x.getPayload = payload
-
 let clientAction clientRef controlFlag command payload =
     let clientMsg = clientMessage()
     clientMsg.controlFlag <- controlFlag
@@ -83,15 +45,6 @@ let clientAction clientRef controlFlag command payload =
     clientMsg.payload <- JsonConvert.SerializeObject(payload)
     let json = JsonConvert.SerializeObject(clientMsg)
     clientRef <! json
-
-// type query(typeOf, matching) =
-//     inherit Object()
-
-//     let mutable typeOf: String = typeOf
-//     let mutable matching: String = matching
-
-//     member x.getTypeOf = typeOf
-//     member x.getMatching = matching
 
 let rec take n list = 
   match n with

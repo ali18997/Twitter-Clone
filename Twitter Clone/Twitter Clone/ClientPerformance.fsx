@@ -271,7 +271,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
                 clientSpawnRegister ((string) i)
             //printfn "regis %d" i
 
-            delay 2
+            delay 10
             //Subscription as per zipf distribution
             let nValue = noOfClients - 1 
 
@@ -285,7 +285,7 @@ let ClientCoordinator (mailbox: Actor<_>) =
                     for j in nums do
                         if (j<>i) then
                             clientSubscribe ((string) j) ((string) i)
-            delay 2
+            delay 10
             //cycle<-cycle+1
             let clientCoorMsg1 = new ClientCoordinatorMessage()
             clientCoorMsg1.Command <- "UpdateConnections"

@@ -21,8 +21,4 @@ If the user is connected, the tweets are delivered live (without querying)
 
 
 4)Performance
-For 2000 clients & 2000 total requests:
-Average time per tweet is 145.804178 milliseconds
-Average time per mention query is 431.713918 milliseconds
-Average time per subscribed query is 145.804178 milliseconds
-Average time per hashtag query is 452.716216 milliseconds
+Refer report

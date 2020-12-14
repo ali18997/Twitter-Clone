@@ -9,6 +9,10 @@
 #r "FSharp.Core.dll"
 #r "Suave.dll"
 
+#r "nuget: Akka" 
+#r "nuget: Akka.FSharp" 
+#r "nuget: Akka.TestKit"
+
 open Suave
 open Suave.Http
 open Suave.Operators
@@ -37,7 +41,6 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
   socket {
     // if `loop` is set to false, the server will stop receiving messages
     let mutable loop = true
-    printfn "hello"
 
     while loop do
       // the server will wait for a message to be received without blocking the thread
@@ -57,11 +60,15 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         let str = UTF8.toString data
         let response = sprintf "response to %s" str
 
+        printfn "%s" str
+
         // the response needs to be converted to a ByteSegment
         let byteResponse =
           response
           |> System.Text.Encoding.ASCII.GetBytes
           |> ByteSegment
+
+        let x = webSocket.sender
 
         // the `send` function sends a message back to the client
         do! webSocket.send Text byteResponse true
@@ -101,7 +108,7 @@ let app : WebPart =
     path "/websocket" >=> handShake ws
     path "/websocketWithSubprotocol" >=> handShakeWithSubprotocol (chooseSubprotocol "test") ws
     path "/websocketWithError" >=> handShake wsWithErrorHandling
-    GET >=> choose [ path "/index" >=> file "index.html"; browseHome ]
+    GET >=> choose [ path "/" >=> file "index.html"; browseHome ]
     NOT_FOUND "Found no handlers." ]
 
 startWebServer { defaultConfig with logger = Targets.create Verbose [||] } app

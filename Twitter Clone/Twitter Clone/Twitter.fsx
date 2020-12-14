@@ -22,13 +22,14 @@ open DataStruc
 let system = System.create "system" <| Configuration.load ()
 
 
-
 let clientAction clientRef controlFlag command payload =
     let clientMsg = clientMessage(controlFlag, command, payload)
     clientRef <! clientMsg
 
 let mutable tweets:List<tweet> = []
 let mutable subscribedData:List<subscribedTo> = []
+
+let mutable (tweetTotalTime:int64) = 0L
 
 
 let server (serverMailbox:Actor<serverMessage>) = 
@@ -75,6 +76,8 @@ let server (serverMailbox:Actor<serverMessage>) =
             client <- system.ActorSelection("akka://system/user/"+clientName)
             clientAction client false "Register" null
         elif message.getCommand = "Send Tweet" then
+            let timer = new Stopwatch()
+            timer.Start()
             let tweet:tweet = downcast message.getPayload
             tweets <- tweets @ [tweet]
             printfn "Tweet Sent"
@@ -411,7 +414,7 @@ let ClientCoordinator (mailbox: Actor<ClientCoordinatorMessage>) =
 spawn system "Twitter" TwitterEngine |> ignore
 
 let cc = spawn system "CC" ClientCoordinator
-cc<!ClientCoordinatorMessage("InitializeClientCoorinator",1000)
+cc<!ClientCoordinatorMessage("InitializeClientCoorinator",5000)
 
 System.Console.ReadKey() |> ignore
 

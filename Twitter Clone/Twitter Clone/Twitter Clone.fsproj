@@ -26,6 +26,7 @@
     <PackageReference Include="FSharp.Json" Version="0.4.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="5.0.0" />
+    <PackageReference Include="Suave" Version="2.6.0" />
   </ItemGroup>
 
 </Project>

@@ -68,7 +68,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
           |> System.Text.Encoding.ASCII.GetBytes
           |> ByteSegment
 
-        let x = webSocket.sender
+
 
         // the `send` function sends a message back to the client
         do! webSocket.send Text byteResponse true

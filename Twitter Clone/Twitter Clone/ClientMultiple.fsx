@@ -217,11 +217,6 @@ let startClients = async {
     delay 1
 
     //clientTweet "client0" "Hello World" [] ["FirstTweet"; "NewUser"]
-    //clientRetweet "client1" tweets.[0]
-
-    //clientQuery "client1" "MyMentions" null
-    //clientQuery "client0" "Subscribed" null
-    //clientQuery "client1" "Hashtags" "FirstTweet"
     clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
     delay 1
     clientQuery "client1" "MyMentions" null
@@ -232,14 +227,22 @@ let startClients = async {
     
 
 
-
+[<EntryPoint>]
+let main argv =
 
     
-[receivefun; startClients]
+    [receivefun; startClients]
     |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore
+    
 
-System.Console.ReadKey() |> ignore
+    //clientRetweet "client1" tweets.[0]
 
-0 // return an integer exit code
+    //clientQuery "client1" "MyMentions" null
+    //clientQuery "client0" "Subscribed" null
+    //clientQuery "client1" "Hashtags" "FirstTweet"
+
+    System.Console.ReadKey() |> ignore
+
+    0 // return an integer exit code

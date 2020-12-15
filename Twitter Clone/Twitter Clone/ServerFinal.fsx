@@ -1,4 +1,3 @@
-
 open Suave
 open Suave.Operators
 open Suave.Filters
@@ -13,13 +12,21 @@ open Newtonsoft.Json
 open Akka
 open Akka.FSharp
 open Akka.Actor
+open System.Collections.Generic
 
 //Create System reference
 let system = System.create "system" <| Configuration.defaultConfig()
 let Twitter = system.ActorSelection("akka://system/user/Twitter")
 
+type serverMessage() = 
+    [<DefaultValue>] val mutable clientName: String
+    [<DefaultValue>] val mutable command: String
+    [<DefaultValue>] val mutable payload: Object
+
 let mutable flag:Boolean = false
 let mutable reply:String = ""
+
+let dict = new Dictionary<string, WebSocket>()
 
 
 let ws (webSocket : WebSocket) (context: HttpContext) =
@@ -30,6 +37,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
     while loop do
       // the server will wait for a message to be received without blocking the thread
       let! msg = webSocket.read()
+      
 
       match msg with
       // the message has type (Opcode * byte [] * bool)
@@ -52,18 +60,14 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
           response
           |> System.Text.Encoding.ASCII.GetBytes
           |> ByteSegment
-
-
+        
+        let serMsg:serverMessage = JsonConvert.DeserializeObject<serverMessage>str
+        if dict.ContainsKey(serMsg.clientName) = false then
+            dict.Add(serMsg.clientName, webSocket)
+       
         Twitter <! str
         // the `send` function sends a message back to the client
-        System.Threading.Thread.Sleep(50)
-        
-        while(flag = true) do
-            printfn "server Sending %A" reply 
-            let a = System.Text.Encoding.ASCII.GetBytes(reply) |> ByteSegment
-            do! webSocket.send Text a true
-            flag <- false
-            System.Threading.Thread.Sleep(50)
+
 
       | (Close, _, _) ->
         let emptyResponse = [||] |> ByteSegment
@@ -103,19 +107,15 @@ let app : WebPart =
     GET >=> choose [ path "/" >=> file "index.html"; browseHome ]
     NOT_FOUND "Found no handlers." ]
 
-
 type tweet() = 
     inherit Object()
 
     [<DefaultValue>] val mutable sender: String
     [<DefaultValue>] val mutable tweet: String
-    [<DefaultValue>] val mutable mentions: List<String>
-    [<DefaultValue>] val mutable hashtags: List<String>
+    [<DefaultValue>] val mutable mentions: Microsoft.FSharp.Collections.List<String>
+    [<DefaultValue>] val mutable hashtags: Microsoft.FSharp.Collections.List<String>
 
-type serverMessage() = 
-    [<DefaultValue>] val mutable clientName: String
-    [<DefaultValue>] val mutable command: String
-    [<DefaultValue>] val mutable payload: Object
+
 
 type clientMessage() = 
     [<DefaultValue>] val mutable name: String
@@ -125,7 +125,7 @@ type clientMessage() =
 
 type subscribedTo() =
     [<DefaultValue>] val mutable client: String
-    [<DefaultValue>] val mutable subscribedClients: List<String>
+    [<DefaultValue>] val mutable subscribedClients: Microsoft.FSharp.Collections.List<String>
 
 type query() =
     inherit Object()
@@ -134,8 +134,9 @@ type query() =
     [<DefaultValue>] val mutable matching: String
 
 
-let mutable tweets:List<tweet> = []
-let mutable subscribedData:List<subscribedTo> = []
+
+let mutable tweets:Microsoft.FSharp.Collections.List<tweet> = []
+let mutable subscribedData:Microsoft.FSharp.Collections.List<subscribedTo> = []
 
 let clientAction clientName controlFlag command payload =
     let clientMsg = new clientMessage()
@@ -144,12 +145,10 @@ let clientAction clientName controlFlag command payload =
     clientMsg.command <- command
     clientMsg.payload <- JsonConvert.SerializeObject(payload)
     let json = JsonConvert.SerializeObject(clientMsg)
-    let a = 0
-    while (flag) do
-        a = 1+1   
-
-    flag <- true
-    reply <- json
+    let webSocket:WebSocket = dict.[clientName]
+    let sendVal = System.Text.Encoding.ASCII.GetBytes(json) |> ByteSegment
+    webSocket.send Text sendVal true |> Async.RunSynchronously
+    printfn "server sent %A" json
 
 let clientAction2 clientName controlFlag command payload =
     let clientMsg = new clientMessage()
@@ -158,12 +157,10 @@ let clientAction2 clientName controlFlag command payload =
     clientMsg.command <- command
     clientMsg.payload <- payload
     let json = JsonConvert.SerializeObject(clientMsg)
-    let a = 0
-    while (flag) do
-        a = 1+1   
-
-    flag <- true
-    reply <- json
+    let webSocket:WebSocket = dict.[clientName]
+    let sendVal = System.Text.Encoding.ASCII.GetBytes(json) |> ByteSegment
+    webSocket.send Text sendVal true |> Async.RunSynchronously
+    printfn "server sent %A" json
 
 //Actor
 let server (serverMailbox:Actor<_>) = 
@@ -177,7 +174,7 @@ let server (serverMailbox:Actor<_>) =
         
             let checkExists client toSend = 
                 let client:String = client
-                let toSend:List<String> = toSend
+                let toSend:Microsoft.FSharp.Collections.List<String> = toSend
                 let mutable flag = true
                 for item in toSend do
                     if item.Equals(client) then
@@ -185,14 +182,14 @@ let server (serverMailbox:Actor<_>) =
                 flag
 
             let tweet:tweet = tweet
-            let mentions:List<String> = tweet.mentions
+            let mentions:Microsoft.FSharp.Collections.List<String> = tweet.mentions
             
-            let mutable toSend: List<String> = []
+            let mutable toSend: Microsoft.FSharp.Collections.List<String> = []
             for client in mentions do
                 toSend <- [client] @ toSend
 
             for item in subscribedData do
-                let list:List<String> = item.subscribedClients
+                let list:Microsoft.FSharp.Collections.List<String> = item.subscribedClients
                 for item2 in list do
                     if item2.Equals(tweet.sender) then
                         if checkExists item.client toSend then
@@ -247,7 +244,7 @@ let server (serverMailbox:Actor<_>) =
         elif msg.command = "Query" then
             let query:query = JsonConvert.DeserializeObject<query> ((string)msg.payload)
             if query.typeOf = "MyMentions" then
-                let mutable mentionedTweetList: List<tweet> = []
+                let mutable mentionedTweetList: Microsoft.FSharp.Collections.List<tweet> = []
                 for tweet in tweets do
                     let mentions = tweet.mentions
                     for mention in mentions do
@@ -256,10 +253,10 @@ let server (serverMailbox:Actor<_>) =
                 clientAction clientName false "MyMentions" mentionedTweetList
                 
             elif query.typeOf = "Subscribed" then
-                let mutable subscribedTweetList: List<tweet> = []
+                let mutable subscribedTweetList: Microsoft.FSharp.Collections.List<tweet> = []
                 for item in subscribedData do
                     if item.client = clientName then
-                        let subscribedClients:List<String> = item.subscribedClients
+                        let subscribedClients:Microsoft.FSharp.Collections.List<String> = item.subscribedClients
                         for subClient in subscribedClients do
                             for tweet in tweets do
                                 if tweet.sender = subClient then
@@ -267,9 +264,9 @@ let server (serverMailbox:Actor<_>) =
                 clientAction clientName false "Subscribed" subscribedTweetList
 
             elif query.typeOf = "Hashtags" then
-                let mutable hashtagTweetList: List<tweet> = []
+                let mutable hashtagTweetList: Microsoft.FSharp.Collections.List<tweet> = []
                 for item in tweets do
-                    let list:List<String> = item.hashtags
+                    let list:Microsoft.FSharp.Collections.List<String> = item.hashtags
                     for hashtag in list do
                         if hashtag = query.matching then
                             hashtagTweetList <- hashtagTweetList @ [item]
@@ -306,13 +303,13 @@ let TwitterEngine (EngineMailbox:Actor<_>) =
     EngineLoop()
 
 
-
-
-spawn system "Twitter" TwitterEngine |> ignore
+[<EntryPoint>]
+let main argv =
+    spawn system "Twitter" TwitterEngine |> ignore
 
    
-startWebServer { defaultConfig with logger = Targets.create Verbose [||] } app
+    startWebServer { defaultConfig with logger = Targets.create Verbose [||] } app
 
-System.Console.ReadKey() |> ignore
+    System.Console.ReadKey() |> ignore
 
-0 // return an integer exit code
+    0 // return an integer exit code

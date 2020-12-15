@@ -23,7 +23,8 @@
           "FSharp.Core": "5.0.0",
           "FSharp.Json": "0.4.0",
           "Microsoft.Extensions.Logging": "5.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "5.0.0"
+          "Microsoft.Extensions.Logging.Abstractions": "5.0.0",
+          "Suave": "2.6.0"
         },
         "runtime": {
           "Twitter Clone.dll": {}
@@ -560,6 +561,17 @@
           "lib/netstandard2.1/Serilog.dll": {
             "assemblyVersion": "2.0.0.0",
             "fileVersion": "2.10.0.0"
+          }
+        }
+      },
+      "Suave/2.6.0": {
+        "dependencies": {
+          "FSharp.Core": "5.0.0"
+        },
+        "runtime": {
+          "lib/netstandard2.1/Suave.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
           }
         }
       },
@@ -1751,6 +1763,13 @@
       "sha512": "sha512-+QX0hmf37a0/OZLxM3wL7V6/ADvC1XihXN4Kq/p6d8lCPfgkRdiuhbWlMaFjR9Av0dy5F0+MBeDmDdRZN/YwQA==",
       "path": "serilog/2.10.0",
       "hashPath": "serilog.2.10.0.nupkg.sha512"
+    },
+    "Suave/2.6.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-GFm/CR3QSc5FRc+pZ4uar+eMRPS01226T9trBnm4PapH4q0HRPR7I24Tan6YxKxsSmHGJgR+SQz2bD+EAd3RGA==",
+      "path": "suave/2.6.0",
+      "hashPath": "suave.2.6.0.nupkg.sha512"
     },
     "System.AppContext/4.3.0": {
       "type": "package",

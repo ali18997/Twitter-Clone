@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "nAYK3oa3vxJKsElkXcx55lH5xfZ6Qpu2D/gfPhlKnuJMRJbWrzZIcF/9V/xoJTwiALiEpmNfzyIfAKx5lgTrXQ==",
+  "dgSpecHash": "SbhSyXneT6uKF2+mG62o0WC7x0s5f9hZfbd9g2q+xXVOiOy+aNOlgNM/gnp+2FQJw3sByfFGnFZTJEq9b40xUg==",
   "success": true,
   "projectFilePath": "C:\\Users\\moham\\Documents\\GitHub\\Twitter-Clone\\Twitter Clone\\Twitter Clone\\Twitter Clone.fsproj",
   "expectedPackageFiles": [
@@ -57,6 +57,7 @@
     "C:\\Users\\moham\\.nuget\\packages\\runtime.ubuntu.16.04-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.ubuntu.16.04-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\moham\\.nuget\\packages\\runtime.ubuntu.16.10-x64.runtime.native.system.security.cryptography.openssl\\4.3.2\\runtime.ubuntu.16.10-x64.runtime.native.system.security.cryptography.openssl.4.3.2.nupkg.sha512",
     "C:\\Users\\moham\\.nuget\\packages\\serilog\\2.10.0\\serilog.2.10.0.nupkg.sha512",
+    "C:\\Users\\moham\\.nuget\\packages\\suave\\2.6.0\\suave.2.6.0.nupkg.sha512",
     "C:\\Users\\moham\\.nuget\\packages\\system.appcontext\\4.3.0\\system.appcontext.4.3.0.nupkg.sha512",
     "C:\\Users\\moham\\.nuget\\packages\\system.buffers\\4.3.0\\system.buffers.4.3.0.nupkg.sha512",
     "C:\\Users\\moham\\.nuget\\packages\\system.collections\\4.3.0\\system.collections.4.3.0.nupkg.sha512",

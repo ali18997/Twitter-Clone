@@ -43,6 +43,7 @@ let system = System.create "system" <| Configuration.defaultConfig()
 type tweet() = 
     inherit Object()
 
+    [<DefaultValue>] val mutable id: String
     [<DefaultValue>] val mutable sender: String
     [<DefaultValue>] val mutable tweet: String
     [<DefaultValue>] val mutable mentions: List<String>
@@ -93,12 +94,13 @@ let clientQuery client typeOf matching =
     query.matching <- matching
     clientAction Client true "Query" query
 
-let clientRetweet client tweet = 
+let clientRetweet client tweetID = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Retweet" tweet
+    clientAction Client true "Retweet" tweetID
 
 let clientTweet sender tweet mentions hashtags = 
     let tweetMsg = new tweet()
+    tweetMsg.id <- Guid.NewGuid().ToString()
     tweetMsg.sender <- sender
     tweetMsg.tweet <- tweet
     tweetMsg.mentions <- mentions
@@ -318,6 +320,7 @@ let receivefun = async{
         dd <- socket.ReceiveAsync (buffer, cts.Token)
         xx <- dd.Result.EndOfMessage
         let msg = JsonConvert.DeserializeObject<clientMessage> (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
+        //printfn "%A" (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
         let Client =  system.ActorSelection("akka://system/user/"+  msg.name )
         Client <! (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
     }

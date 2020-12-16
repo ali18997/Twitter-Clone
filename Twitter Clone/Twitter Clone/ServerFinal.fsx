@@ -127,6 +127,7 @@ let app : WebPart =
 type tweet() = 
     inherit Object()
 
+    [<DefaultValue>] val mutable id: String
     [<DefaultValue>] val mutable sender: String
     [<DefaultValue>] val mutable tweet: String
     [<DefaultValue>] val mutable mentions: Microsoft.FSharp.Collections.List<String>
@@ -248,12 +249,20 @@ let server (serverMailbox:Actor<_>) =
             clientAction2 clientName false "Subscribed" ((string)msg.payload)
 
         elif msg.command = "Retweet" then
-            let tweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)msg.payload)
+            let tweetID:string = JsonConvert.DeserializeObject<string> ((string)msg.payload)
+            let mutable (foundTweet:tweet) = new tweet()
+            for item in tweets do
+                if (item.id=tweetID) then
+                    foundTweet<-item
+                    
+
+
             let tweet2 = new tweet()
+            tweet2.id <- Guid.NewGuid().ToString()
             tweet2.sender <- clientName
-            tweet2.tweet <- tweet.tweet
-            tweet2.mentions <- tweet.mentions
-            tweet2.hashtags <- tweet.hashtags
+            tweet2.tweet <- foundTweet.tweet
+            tweet2.mentions <- foundTweet.mentions
+            tweet2.hashtags <- foundTweet.hashtags
             tweets <- tweets @ [tweet2]
             clientAction clientName false "Retweet" null
             sendLive tweet2

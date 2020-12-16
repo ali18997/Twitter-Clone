@@ -234,12 +234,12 @@ let Client (ClientMailbox:Actor<_>) =
 
             elif(msg.command = "Subscribed") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
-                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name list
+                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
             elif(msg.command = "Hashtags") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
-                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name list
+                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
             elif(msg.command = "Live") then 

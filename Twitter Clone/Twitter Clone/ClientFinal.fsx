@@ -23,6 +23,10 @@ open System.Text;
 open Newtonsoft.Json
 open System.Net.WebSockets
 
+let mutable clientName:String = ""
+let mutable registerFlag:Boolean = false
+let mutable menuFlag:Boolean = true
+
 let socket = new ClientWebSocket()
 let cts = new CancellationTokenSource()
 let uri = Uri("ws://localhost:8080/websocket")
@@ -134,6 +138,46 @@ let sendToServer2 clientName command payload=
 
 
 
+
+
+let mainMenuStart value =
+    printfn "User: %A" clientName
+    printfn "Main Menu"
+    printfn ""
+    printfn "Select Choice Below:"
+    printfn "1. Register/Login"
+    let choice = System.Console.ReadLine()
+    choice
+
+let mainMenu value = 
+    printfn "User: %A" clientName
+    printfn "Main Menu"
+    printfn ""
+    printfn "Select Choice Below:"
+    printfn "1. Register/Login"
+    printfn "2. Send Tweet"
+    printfn "3. Subscribe"
+    printfn "4. Retweet"
+    printfn "5. Tweets I am Tagged In"
+    printfn "6. Tweets from People I have Subscribed"
+    printfn "7. Tweets containing a Hashtag"
+    printf "Enter a number from 1-7: "
+    let choice = System.Console.ReadLine()
+    choice
+
+let mainMenuRunner value = 
+    if registerFlag then
+        mainMenu value
+    else 
+        mainMenuStart value
+
+let menuBack value = 
+    printfn ""
+    printfn "Press Enter to Continue"
+    System.Console.ReadLine() |> ignore
+    System.Console.Clear()
+    menuFlag <- true
+
     //Actor
 let Client (ClientMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
@@ -162,29 +206,44 @@ let Client (ClientMailbox:Actor<_>) =
             if(msg.command = "Register") then
                 server <- ClientMailbox.Sender()
                 printfn "%A Registered" ClientMailbox.Self.Path.Name
+                registerFlag <- true
+                menuBack true
+
             elif(msg.command = "Retweet") then
                 printfn "%A Retweeted" ClientMailbox.Self.Path.Name
+                menuBack true
+
             elif(msg.command = "Subscribed") then
                 printfn "%A Subscribed %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
             elif(msg.command = "Retweet") then
                 printfn "%A Retweeted" ClientMailbox.Self.Path.Name
+                menuBack true
+
             elif(msg.command = "Send Tweet") then
                 printfn "%A Tweet Sent: %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
             elif(msg.command = "MyMentions") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
                 printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name msg.payload
- 
+                menuBack true
+
             elif(msg.command = "Subscribed") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
                 printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name list
+                menuBack true
 
             elif(msg.command = "Hashtags") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
                 printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name list
+                menuBack true
 
             elif(msg.command = "Live") then 
                 let liveTweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)msg.payload)
                 printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
 
 
         return! ClientLoop()
@@ -197,8 +256,38 @@ let clientSpawnRegister client =
     spawn system client Client |> ignore
     clientRegister client
 
+
 let delay num = 
     System.Threading.Thread.Sleep(num * 1000)
+
+let choiceRunner choice = 
+    menuFlag <- false
+    if choice = "1" then
+        clientSpawnRegister clientName
+    elif choice = "2" && registerFlag then 
+        printf "Enter Tweet: "
+        let tweetText:String = System.Console.ReadLine()
+        //TO BE COMPLETED WITH PARSER
+        clientTweet clientName tweetText [] []
+    elif choice = "3" && registerFlag then
+        printf "Enter User You Want to Subscribe: "
+        let user2Sub:String = System.Console.ReadLine()
+        clientSubscribe clientName user2Sub
+    elif choice = "4" && registerFlag then
+        printf "Enter Tweet ID to Retweet: "
+        let tweetID:String = System.Console.ReadLine()
+        clientRetweet clientName tweetID
+    elif choice = "5" && registerFlag then
+        clientQuery clientName "MyMentions" null
+    elif choice = "6" && registerFlag then
+        clientQuery clientName "Subscribed" null
+    elif choice = "7" && registerFlag then
+        printf "Enter Hashtag to Search: "
+        let hashtag:String = System.Console.ReadLine()
+        clientQuery clientName "Hashtags" hashtag
+    else 
+        menuFlag <- true
+        printfn "Invalid Input, Please Try Again"
 
 
 let receivefun = async{
@@ -213,66 +302,34 @@ let receivefun = async{
         Client <! (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
     }
 
-let getListOfHashes (tweet:string) = 
-    let words = tweet.Split [|' '|]
-    let mutable listOfHashes = List.Empty
-    for word in words do
-        if ((word.Chars 0)='#') then
-            listOfHashes <- listOfHashes @ [word.[1..word.Length-1]]
-    listOfHashes
 
-let getListOfMentions (tweet:string) = 
-    let words = tweet.Split [|' '|]
-    let mutable listOfMentions = List.Empty
-    for word in words do
-        if ((word.Chars 0)='@') then
-            listOfMentions <- listOfMentions @ [word.[1..word.Length-1]]
-    listOfMentions
 
-let startClients = async {
-    clientSpawnRegister "client0"
-    delay 1
-    clientSpawnRegister "client1"
-    delay 1
-    clientSpawnRegister "client2"
- 
-    delay 1
-    clientSubscribe "client0" "client1"
-    delay 1
-    clientSubscribe "client0" "client2"
-    delay 1
-    clientSubscribe "client1" "client2"
-    delay 1
-    clientSubscribe "client1" "client0"
-    delay 1
-    clientSubscribe "client2" "client0"
-    delay 1
 
-    //clientTweet "client0" "Hello World" [] ["FirstTweet"; "NewUser"]
-    clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
-    delay 1
-    clientQuery "client1" "MyMentions" null
-    clientSpawnRegister "client3"
 
-    delay 1
+
+let startClient = async {
+
+    while(true) do
+        if menuFlag then
+            choiceRunner (mainMenuRunner true)
+    
 }
     
 
-
+printf "Enter a Client Name: "
+clientName <- System.Console.ReadLine()
+printfn "Welcome %A!" clientName
+printfn ""
+printfn "Press Enter to Continue"
+System.Console.ReadLine() |> ignore
+System.Console.Clear()
 
     
-[receivefun; startClients]
+[receivefun; startClient]
     |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore
     
-
-    //clientRetweet "client1" tweets.[0]
-
-    //clientQuery "client1" "MyMentions" null
-    //clientQuery "client0" "Subscribed" null
-    //clientQuery "client1" "Hashtags" "FirstTweet"
-
 System.Console.ReadKey() |> ignore
 
 0 // return an integer exit code

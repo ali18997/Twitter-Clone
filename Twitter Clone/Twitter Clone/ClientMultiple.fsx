@@ -1,3 +1,19 @@
+#I @"packages"
+// #r "nuget: Akka.FSharp" 
+// #r "nuget: Akka" 
+#r "Akka.FSharp.dll"
+#r "Akka.dll"
+// #r "System.Configuration.ConfigurationManager.dll"
+#r "Newtonsoft.Json.dll"
+#r "FsPickler.dll"
+#r "FSharp.Core.dll"
+#r "DotNetty.Buffers.dll"
+#r "DotNetty.Transport.dll"
+#r "DotNetty.Common.dll"
+#r "Microsoft.Extensions.Logging.Abstractions.dll"
+#r "Microsoft.Extensions.Logging.dll"
+#r "Akkling.dll"
+
 open Akka
 open Akka.FSharp
 open System

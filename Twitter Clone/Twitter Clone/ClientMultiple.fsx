@@ -213,6 +213,22 @@ let receivefun = async{
         Client <! (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
     }
 
+let getListOfHashes (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfHashes = List.Empty
+    for word in words do
+        if ((word.Chars 0)='#') then
+            listOfHashes <- listOfHashes @ [word.[1..word.Length-1]]
+    listOfHashes
+
+let getListOfMentions (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfMentions = List.Empty
+    for word in words do
+        if ((word.Chars 0)='@') then
+            listOfMentions <- listOfMentions @ [word.[1..word.Length-1]]
+    listOfMentions
+
 let startClients = async {
     clientSpawnRegister "client0"
     delay 1

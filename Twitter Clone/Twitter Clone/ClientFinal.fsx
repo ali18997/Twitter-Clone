@@ -260,6 +260,22 @@ let clientSpawnRegister client =
 let delay num = 
     System.Threading.Thread.Sleep(num * 1000)
 
+let getListOfHashes (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfHashes = List.Empty
+    for word in words do
+        if ((word.Chars 0)='#') then
+            listOfHashes <- listOfHashes @ [word]
+    listOfHashes
+
+let getListOfMentions (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfMentions = List.Empty
+    for word in words do
+        if ((word.Chars 0)='@') then
+            listOfMentions <- listOfMentions @ [word.[1..word.Length-1]]
+    listOfMentions
+
 let choiceRunner choice = 
     menuFlag <- false
     if choice = "1" then
@@ -268,7 +284,11 @@ let choiceRunner choice =
         printf "Enter Tweet: "
         let tweetText:String = System.Console.ReadLine()
         //TO BE COMPLETED WITH PARSER
-        clientTweet clientName tweetText [] []
+        let mentionsList = getListOfMentions tweetText
+        let hashtagList = getListOfHashes tweetText
+
+
+        clientTweet clientName tweetText mentionsList hashtagList
     elif choice = "3" && registerFlag then
         printf "Enter User You Want to Subscribe: "
         let user2Sub:String = System.Console.ReadLine()

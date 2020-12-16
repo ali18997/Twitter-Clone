@@ -320,13 +320,11 @@ let TwitterEngine (EngineMailbox:Actor<_>) =
     EngineLoop()
 
 
-[<EntryPoint>]
-let main argv =
-    spawn system "Twitter" TwitterEngine |> ignore
+spawn system "Twitter" TwitterEngine |> ignore
 
    
-    startWebServer { defaultConfig with logger = Targets.create Verbose [||] } app
+startWebServer { defaultConfig with logger = Targets.create Verbose [||] } app
 
-    System.Console.ReadKey() |> ignore
+System.Console.ReadKey() |> ignore
 
-    0 // return an integer exit code
+0 // return an integer exit code

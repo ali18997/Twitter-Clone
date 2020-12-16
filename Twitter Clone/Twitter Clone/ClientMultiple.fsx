@@ -259,11 +259,9 @@ let startClients = async {
     
 
 
-[<EntryPoint>]
-let main argv =
 
     
-    [receivefun; startClients]
+[receivefun; startClients]
     |> Async.Parallel
     |> Async.RunSynchronously
     |> ignore
@@ -275,6 +273,6 @@ let main argv =
     //clientQuery "client0" "Subscribed" null
     //clientQuery "client1" "Hashtags" "FirstTweet"
 
-    System.Console.ReadKey() |> ignore
+System.Console.ReadKey() |> ignore
 
-    0 // return an integer exit code
+0 // return an integer exit code

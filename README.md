@@ -51,3 +51,5 @@ Logout
 Twitter Client
 
 Each user has its own Client actor which sends & receives messages to & from the server via websockets. On receiving any response from the websocket, the client actor prints it on the console. For message passing, the JSON format has been used as it enables lightweight messages.
+
+VIDEO LINK: https://drive.google.com/drive/folders/1Zg_IMxuZ5u9Lu-dttmHUdzXP99RAyZEV?usp=sharing

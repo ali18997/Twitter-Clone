@@ -1,4 +1,5 @@
-﻿open Akka
+﻿
+open Akka
 open Akka.FSharp
 open System
 open Akka.Actor
@@ -10,6 +11,7 @@ open System.Net.WebSockets
 let mutable clientName:String = ""
 let mutable registerFlag:Boolean = false
 let mutable menuFlag:Boolean = true
+let mutable actorFlag:Boolean = false
 
 let socket = new ClientWebSocket()
 let cts = new CancellationTokenSource()
@@ -27,6 +29,7 @@ let system = System.create "system" <| Configuration.defaultConfig()
 type tweet() = 
     inherit Object()
 
+    [<DefaultValue>] val mutable id: String
     [<DefaultValue>] val mutable sender: String
     [<DefaultValue>] val mutable tweet: String
     [<DefaultValue>] val mutable mentions: List<String>
@@ -77,12 +80,17 @@ let clientQuery client typeOf matching =
     query.matching <- matching
     clientAction Client true "Query" query
 
-let clientRetweet client tweet = 
+let clientRetweet client tweetID = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Retweet" tweet
+    clientAction Client true "Retweet" tweetID
+
+let clientLogout clientName = 
+    let client =  system.ActorSelection("akka://system/user/"+  clientName )
+    clientAction client true "Logout" null
 
 let clientTweet sender tweet mentions hashtags = 
     let tweetMsg = new tweet()
+    tweetMsg.id <- Guid.NewGuid().ToString()
     tweetMsg.sender <- sender
     tweetMsg.tweet <- tweet
     tweetMsg.mentions <- mentions
@@ -145,7 +153,8 @@ let mainMenu value =
     printfn "5. Tweets I am Tagged In"
     printfn "6. Tweets from People I have Subscribed"
     printfn "7. Tweets containing a Hashtag"
-    printf "Enter a number from 1-7: "
+    printfn "8. Logout"
+    printf "Enter a number from 1-8: "
     let choice = System.Console.ReadLine()
     choice
 
@@ -184,7 +193,7 @@ let Client (ClientMailbox:Actor<_>) =
             if(msg.command = "Register") then
                 sendToServer2 ClientMailbox.Self.Path.Name "Register"ClientMailbox.Self.Path.Name
             elif (msg.command = "Send Tweet" || msg.command = "Subscribe" || 
-                    msg.command = "Retweet" || msg.command = "Query") then
+                    msg.command = "Retweet" || msg.command = "Query" || msg.command = "Logout" ) then
                     ClientToServer ClientMailbox.Self.Path.Name server msg.command msg.payload
         else
             if(msg.command = "Register") then
@@ -216,12 +225,12 @@ let Client (ClientMailbox:Actor<_>) =
 
             elif(msg.command = "Subscribed") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
-                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name list
+                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
             elif(msg.command = "Hashtags") then
                 let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
-                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name list
+                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
             elif(msg.command = "Live") then 
@@ -229,6 +238,11 @@ let Client (ClientMailbox:Actor<_>) =
                 printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
+            elif(msg.command = "Logout") then
+                registerFlag <- false
+                printfn "%A Logged out!" clientName
+                let client =  system.ActorSelection("akka://system/user/"+  clientName )
+                menuBack true
 
         return! ClientLoop()
     }
@@ -237,12 +251,31 @@ let Client (ClientMailbox:Actor<_>) =
     ClientLoop()
 
 let clientSpawnRegister client = 
-    spawn system client Client |> ignore
+    if (actorFlag = false) then
+        spawn system client Client |> ignore
+        actorFlag <- true
+
     clientRegister client
 
 
 let delay num = 
     System.Threading.Thread.Sleep(num * 1000)
+
+let getListOfHashes (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfHashes = List.Empty
+    for word in words do
+        if ((word.Chars 0)='#') then
+            listOfHashes <- listOfHashes @ [word]
+    listOfHashes
+
+let getListOfMentions (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfMentions = List.Empty
+    for word in words do
+        if ((word.Chars 0)='@') then
+            listOfMentions <- listOfMentions @ [word.[1..word.Length-1]]
+    listOfMentions
 
 let choiceRunner choice = 
     menuFlag <- false
@@ -251,8 +284,9 @@ let choiceRunner choice =
     elif choice = "2" && registerFlag then 
         printf "Enter Tweet: "
         let tweetText:String = System.Console.ReadLine()
-        //TO BE COMPLETED WITH PARSER
-        clientTweet clientName tweetText [] []
+        let mentionsList = getListOfMentions tweetText
+        let hashtagList = getListOfHashes tweetText
+        clientTweet clientName tweetText mentionsList hashtagList
     elif choice = "3" && registerFlag then
         printf "Enter User You Want to Subscribe: "
         let user2Sub:String = System.Console.ReadLine()
@@ -269,6 +303,8 @@ let choiceRunner choice =
         printf "Enter Hashtag to Search: "
         let hashtag:String = System.Console.ReadLine()
         clientQuery clientName "Hashtags" hashtag
+    elif choice = "8" && registerFlag then
+        clientLogout clientName
     else 
         menuFlag <- true
         printfn "Invalid Input, Please Try Again"
@@ -282,6 +318,7 @@ let receivefun = async{
         dd <- socket.ReceiveAsync (buffer, cts.Token)
         xx <- dd.Result.EndOfMessage
         let msg = JsonConvert.DeserializeObject<clientMessage> (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
+        //printfn "%A" (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
         let Client =  system.ActorSelection("akka://system/user/"+  msg.name )
         Client <! (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
     }
@@ -299,11 +336,8 @@ let startClient = async {
     
 }
     
-
-
 [<EntryPoint>]
 let main argv =
-
     printf "Enter a Client Name: "
     clientName <- System.Console.ReadLine()
     printfn "Welcome %A!" clientName
@@ -314,17 +348,10 @@ let main argv =
 
     
     [receivefun; startClient]
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> ignore
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> ignore
     
-
-    //clientRetweet "client1" tweets.[0]
-
-    //clientQuery "client1" "MyMentions" null
-    //clientQuery "client0" "Subscribed" null
-    //clientQuery "client1" "Hashtags" "FirstTweet"
-
     System.Console.ReadKey() |> ignore
 
     0 // return an integer exit code

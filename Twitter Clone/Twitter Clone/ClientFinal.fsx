@@ -14,6 +14,7 @@
 #r "Microsoft.Extensions.Logging.dll"
 #r "Akkling.dll"
 
+
 open Akka
 open Akka.FSharp
 open System
@@ -26,6 +27,7 @@ open System.Net.WebSockets
 let mutable clientName:String = ""
 let mutable registerFlag:Boolean = false
 let mutable menuFlag:Boolean = true
+let mutable actorFlag:Boolean = false
 
 let socket = new ClientWebSocket()
 let cts = new CancellationTokenSource()
@@ -98,6 +100,10 @@ let clientRetweet client tweetID =
     let Client =  system.ActorSelection("akka://system/user/"+  client )
     clientAction Client true "Retweet" tweetID
 
+let clientLogout clientName = 
+    let client =  system.ActorSelection("akka://system/user/"+  clientName )
+    clientAction client true "Logout" null
+
 let clientTweet sender tweet mentions hashtags = 
     let tweetMsg = new tweet()
     tweetMsg.id <- Guid.NewGuid().ToString()
@@ -163,7 +169,8 @@ let mainMenu value =
     printfn "5. Tweets I am Tagged In"
     printfn "6. Tweets from People I have Subscribed"
     printfn "7. Tweets containing a Hashtag"
-    printf "Enter a number from 1-7: "
+    printfn "8. Logout"
+    printf "Enter a number from 1-8: "
     let choice = System.Console.ReadLine()
     choice
 
@@ -202,7 +209,7 @@ let Client (ClientMailbox:Actor<_>) =
             if(msg.command = "Register") then
                 sendToServer2 ClientMailbox.Self.Path.Name "Register"ClientMailbox.Self.Path.Name
             elif (msg.command = "Send Tweet" || msg.command = "Subscribe" || 
-                    msg.command = "Retweet" || msg.command = "Query") then
+                    msg.command = "Retweet" || msg.command = "Query" || msg.command = "Logout" ) then
                     ClientToServer ClientMailbox.Self.Path.Name server msg.command msg.payload
         else
             if(msg.command = "Register") then
@@ -247,6 +254,11 @@ let Client (ClientMailbox:Actor<_>) =
                 printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name msg.payload
                 menuBack true
 
+            elif(msg.command = "Logout") then
+                registerFlag <- false
+                printfn "%A Logged out!" clientName
+                let client =  system.ActorSelection("akka://system/user/"+  clientName )
+                menuBack true
 
         return! ClientLoop()
     }
@@ -255,7 +267,10 @@ let Client (ClientMailbox:Actor<_>) =
     ClientLoop()
 
 let clientSpawnRegister client = 
-    spawn system client Client |> ignore
+    if (actorFlag = false) then
+        spawn system client Client |> ignore
+        actorFlag <- true
+
     clientRegister client
 
 
@@ -285,11 +300,8 @@ let choiceRunner choice =
     elif choice = "2" && registerFlag then 
         printf "Enter Tweet: "
         let tweetText:String = System.Console.ReadLine()
-        //TO BE COMPLETED WITH PARSER
         let mentionsList = getListOfMentions tweetText
         let hashtagList = getListOfHashes tweetText
-
-
         clientTweet clientName tweetText mentionsList hashtagList
     elif choice = "3" && registerFlag then
         printf "Enter User You Want to Subscribe: "
@@ -307,6 +319,8 @@ let choiceRunner choice =
         printf "Enter Hashtag to Search: "
         let hashtag:String = System.Console.ReadLine()
         clientQuery clientName "Hashtags" hashtag
+    elif choice = "8" && registerFlag then
+        clientLogout clientName
     else 
         menuFlag <- true
         printfn "Invalid Input, Please Try Again"
@@ -338,7 +352,6 @@ let startClient = async {
     
 }
     
-
 printf "Enter a Client Name: "
 clientName <- System.Console.ReadLine()
 printfn "Welcome %A!" clientName
@@ -349,9 +362,9 @@ System.Console.Clear()
 
     
 [receivefun; startClient]
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> ignore
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> ignore
     
 System.Console.ReadKey() |> ignore
 

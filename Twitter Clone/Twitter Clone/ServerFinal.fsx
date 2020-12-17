@@ -15,6 +15,8 @@
 #r "Akkling.dll"
 #r "Suave.dll"
 
+
+
 open Suave
 open Suave.Operators
 open Suave.Filters
@@ -226,6 +228,10 @@ let server (serverMailbox:Actor<_>) =
             clientName <- (string) msg.payload
             client <- system.ActorSelection("akka://system/user/"+ clientName )
             clientAction clientName false "Register" null
+        
+        elif msg.command = "Logout" then
+            clientAction clientName false "Logout" null
+            dict.Remove(msg.clientName) |> ignore
 
         elif msg.command = "Send Tweet" then
             let tweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)msg.payload)
@@ -307,14 +313,16 @@ let server (serverMailbox:Actor<_>) =
 //Actor
 let TwitterEngine (EngineMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
-
+    let dictServers = new Dictionary<string, string>()
     let rec EngineLoop() = actor {
 
         //Receive the message
         let! msg2 = EngineMailbox.Receive()
         let msg = JsonConvert.DeserializeObject<serverMessage>msg2
         if msg.command = "Register" then
-            spawn system ("serverfor"+(string) msg.payload) server |> ignore
+            if dictServers.ContainsKey("serverfor"+(string) msg.payload) = false then
+                spawn system ("serverfor"+(string) msg.payload) server |> ignore
+                dictServers.Add("serverfor"+(string) msg.payload, "")
             let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.payload)
             server <! msg2
         else 
@@ -327,6 +335,7 @@ let TwitterEngine (EngineMailbox:Actor<_>) =
 
     //Call to start the actor loop
     EngineLoop()
+
 
 
 spawn system "Twitter" TwitterEngine |> ignore

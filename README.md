@@ -29,11 +29,11 @@ The functionality of Twitter was simulated as follows, keeping the original desi
 
 Twitter Server
 
-startWebServer takes a configuration record and the WebPart & starts a web server on default port 8080 over HTTP. 
-We defined a function ws that takes WebSocket and HttpContext typed parameters, and returns a socket computation expression:
-We used the read and send function to receive and send messages to the clients:
-We used the handShake function to fit it in our web server
-We maintain a hashtable (dict) with clientID as key & the respective WebSocket as value to maintain live connections.
+'startWebServer' takes a configuration record and the WebPart & starts a web server on default port 8080 over HTTP. 
+We defined a function 'ws' that takes WebSocket and HttpContext typed parameters, and returns a socket computation expression:
+We used the 'read' and 'send' function to receive and send messages to the clients:
+We used the 'handShake' function to fit it in our web server
+We maintain a hashtable 'dict' with clientID as key & the respective WebSocket as value to maintain live connections.
 
 The server side is made up of many actors arranged in a two-tier hierarchical system. The TwitterEngine actor on top listens to requests through the websocket & routes them to the respective server actor which then processes the request & sends the response back to the respective client through the websocket. The data store consists of clients stored with their respective subscribers & tweets.
 

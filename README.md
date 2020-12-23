@@ -1,33 +1,32 @@
-TwitterSimulator
+# Twitter Simulator
 
-Team members: 
-Siddharth Jain (UFID:9881-8991)
-Syed Muhammad Ali 3816-1305 (UFID:3816-1305)
+## Contributors:
+- Syed Muhammad Ali
+- Siddharth Jain
 
 A program written as part of Distributed Operating Systems course to design and simulate the Twitter system as a web service. Used Suave IO and message passing in JSON.
 
 
-RUNNING INSTRUCTIONS: 
+## Running instructions:
 
 Go to \Twitter Clone\Twitter Clone
 
-Server:
-
+### **Server:**
 (Open a new terminal)
-dotnet fsi --langversion:preview ServerFinal.fsx
+**dotnet fsi --langversion:preview ServerFinal.fsx**
 
-Client:
+### **Client:**
 
 (Open a new terminal for every client)
-dotnet fsi --langversion:preview ClientFinal.fsx
+**dotnet fsi --langversion:preview ClientFinal.fsx**
 
 It will pop up a menu with instructions. Watch the demo video for the details.
 
-Implementation Details:
+## Implementation Details:
 
 The functionality of Twitter was simulated as follows, keeping the original design as the reference. The server machine hosts many actors that distribute the work of storing and fetching tweets. We divided the load by assigning one server actor per client actor.
 
-Twitter Server
+## Twitter Server
 
 'startWebServer' takes a configuration record and the WebPart & starts a web server on default port 8080 over HTTP. 
 We defined a function 'ws' that takes WebSocket and HttpContext typed parameters, and returns a socket computation expression:
@@ -37,7 +36,7 @@ We maintain a hashtable 'dict' with clientID as key & the respective WebSocket a
 
 The server side is made up of many actors arranged in a two-tier hierarchical system. The TwitterEngine actor on top listens to requests through the websocket & routes them to the respective server actor which then processes the request & sends the response back to the respective client through the websocket. The data store consists of clients stored with their respective subscribers & tweets.
 
-Functionalities Implemented:
+## Functionalities Implemented:
 
 Register account
 Login
@@ -48,8 +47,8 @@ Allow querying tweets subscribed to, tweets with specific hashtags, tweets in wh
 If the user is connected, deliver the above types of tweets live (without querying)
 Logout
 
-Twitter Client
+## Twitter Client
 
 Each user has its own Client actor which sends & receives messages to & from the server via websockets. On receiving any response from the websocket, the client actor prints it on the console. For message passing, the JSON format has been used as it enables lightweight messages.
 
-VIDEO LINK: https://drive.google.com/drive/folders/1Zg_IMxuZ5u9Lu-dttmHUdzXP99RAyZEV?usp=sharing
+**Video Presentation:** https://drive.google.com/drive/folders/1Zg_IMxuZ5u9Lu-dttmHUdzXP99RAyZEV?usp=sharing

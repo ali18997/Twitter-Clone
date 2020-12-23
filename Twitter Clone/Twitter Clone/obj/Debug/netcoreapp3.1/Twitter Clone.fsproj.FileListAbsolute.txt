@@ -60,3 +60,12 @@ C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\obj\De
 C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\obj\Debug\netcoreapp3.1\Twitter Clone.dll
 C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\obj\Debug\netcoreapp3.1\Twitter Clone.pdb
 C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\obj\Debug\netcoreapp3.1\Twitter Clone.genruntimeconfig.cache
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Microsoft.Extensions.DependencyInjection.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Microsoft.Extensions.Options.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Microsoft.Extensions.Primitives.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\System.Diagnostics.DiagnosticSource.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Akka.Serialization.Hyperion.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Akkling.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\FSharp.Json.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Hyperion.dll
+C:\Users\moham\Documents\GitHub\Twitter-Clone\Twitter Clone\Twitter Clone\bin\Debug\netcoreapp3.1\Suave.dll

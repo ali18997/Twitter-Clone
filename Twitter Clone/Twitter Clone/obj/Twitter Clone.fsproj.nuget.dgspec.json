@@ -75,9 +75,49 @@
               "version": "[1.4.11, )",
               "generatePathProperty": true
             },
+            "Akkling": {
+              "target": "Package",
+              "version": "[0.10.0, )",
+              "generatePathProperty": true
+            },
+            "DotNetty.Buffers": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
+            "DotNetty.Common": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
+            "DotNetty.Transport": {
+              "target": "Package",
+              "version": "[0.6.0, )",
+              "generatePathProperty": true
+            },
             "FSharp.Core": {
               "target": "Package",
               "version": "[5.0.0, )",
+              "generatePathProperty": true
+            },
+            "FSharp.Json": {
+              "target": "Package",
+              "version": "[0.4.0, )",
+              "generatePathProperty": true
+            },
+            "Microsoft.Extensions.Logging": {
+              "target": "Package",
+              "version": "[5.0.0, )",
+              "generatePathProperty": true
+            },
+            "Microsoft.Extensions.Logging.Abstractions": {
+              "target": "Package",
+              "version": "[5.0.0, )",
+              "generatePathProperty": true
+            },
+            "Suave": {
+              "target": "Package",
+              "version": "[2.6.0, )",
               "generatePathProperty": true
             }
           },
@@ -96,7 +136,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.100\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.101\\RuntimeIdentifierGraph.json"
         }
       }
     }

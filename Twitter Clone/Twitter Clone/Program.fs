@@ -1,266 +1,248 @@
-﻿open Akka
+﻿
+open Akka
 open Akka.FSharp
 open System
-open System.Diagnostics
 open Akka.Actor
-open System
+open System.Threading;  
+open System.Text; 
+open Newtonsoft.Json
+open System.Net.WebSockets
+
+let mutable clientName:String = ""
+let mutable registerFlag:Boolean = false
+let mutable menuFlag:Boolean = true
+let mutable actorFlag:Boolean = false
+
+let socket = new ClientWebSocket()
+let cts = new CancellationTokenSource()
+let uri = Uri("ws://localhost:8080/websocket")
+
+let aa = socket.ConnectAsync(uri, cts.Token)
+
+aa.Wait()
+
+
 
 //Create System reference
 let system = System.create "system" <| Configuration.defaultConfig()
 
-type tweet(sender, tweet, mentions, hashtags) = 
+type tweet() = 
     inherit Object()
 
-    let mutable sender: String = sender
-    let mutable tweet: String = tweet
-    let mentions: List<String> = mentions
-    let hashtags: List<String> = hashtags
+    [<DefaultValue>] val mutable id: String
+    [<DefaultValue>] val mutable sender: String
+    [<DefaultValue>] val mutable tweet: String
+    [<DefaultValue>] val mutable mentions: List<String>
+    [<DefaultValue>] val mutable hashtags: List<String>
 
-    member x.getSender = sender
-    member x.getTweet = tweet
-    member x.getMentions = mentions
-    member x.getHashtags = hashtags
+type serverMessage() = 
+    [<DefaultValue>] val mutable clientName: String
+    [<DefaultValue>] val mutable command: String
+    [<DefaultValue>] val mutable payload: Object
 
-type serverMessage(command, payload) = 
-    let mutable command: String = command
-    let mutable payload: Object = payload
+type clientMessage() = 
+    [<DefaultValue>] val mutable name: String
+    [<DefaultValue>] val mutable controlFlag: Boolean
+    [<DefaultValue>] val mutable command: String
+    [<DefaultValue>] val mutable payload: Object
 
-    member x.getCommand = command
-    member x.getPayload = payload
+type subscribedTo() =
+    [<DefaultValue>] val mutable client: String
+    [<DefaultValue>] val mutable subscribedClients: List<String>
 
-type clientMessage(controlFlag, command, payload) = 
-    let mutable controlFlag: Boolean = controlFlag
-    let mutable command: String = command
-    let mutable payload: Object = payload
-
-    member x.getControlFlag = controlFlag
-    member x.getCommand = command
-    member x.getPayload = payload
-
-type subscribedTo(client, subscribedClients) =
-    let mutable client: String = client
-    let mutable subscribedClients: List<String> = subscribedClients
-
-    member x.getClient = client
-    member x.getSubscribedClients = subscribedClients
-    member x.addSubscribedClients(newClient) = subscribedClients <- subscribedClients @ [newClient]
-
-type query(typeOf, matching) =
+type query() =
     inherit Object()
 
-    let mutable typeOf: String = typeOf
-    let mutable matching: String = matching
+    [<DefaultValue>] val mutable typeOf: String
+    [<DefaultValue>] val mutable matching: String
 
-    member x.getTypeOf = typeOf
-    member x.getMatching = matching
-
-let Twitter = system.ActorSelection("akka://system/user/Twitter")
-
-let mutable tweets:List<tweet> = []
-let mutable subscribedData:List<subscribedTo> = []
 
 let clientAction clientRef controlFlag command payload =
-    let clientMsg = new clientMessage(controlFlag, command, payload)
-    clientRef <! clientMsg
+    let clientMsg = new clientMessage()
+    clientMsg.controlFlag <- controlFlag
+    clientMsg.command <- command
+    clientMsg.payload <- JsonConvert.SerializeObject(payload)
+    let json = JsonConvert.SerializeObject(clientMsg)
+    clientRef <! json
+
+let clientAction2 clientRef controlFlag command payload =
+    let clientMsg = new clientMessage()
+    clientMsg.controlFlag <- controlFlag
+    clientMsg.command <- command
+    clientMsg.payload <- payload
+    let json = JsonConvert.SerializeObject(clientMsg)
+    clientRef <! json
 
 let clientQuery client typeOf matching =
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    let query = new query(typeOf, matching)
+    let query = new query()
+    query.typeOf <- typeOf
+    query.matching <- matching
     clientAction Client true "Query" query
 
-let clientRetweet client tweet = 
+let clientRetweet client tweetID = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Retweet" tweet
+    clientAction Client true "Retweet" tweetID
+
+let clientLogout clientName = 
+    let client =  system.ActorSelection("akka://system/user/"+  clientName )
+    clientAction client true "Logout" null
 
 let clientTweet sender tweet mentions hashtags = 
-    let tweetMsg = new tweet(sender, tweet, mentions, hashtags)
+    let tweetMsg = new tweet()
+    tweetMsg.id <- Guid.NewGuid().ToString()
+    tweetMsg.sender <- sender
+    tweetMsg.tweet <- tweet
+    tweetMsg.mentions <- mentions
+    tweetMsg.hashtags <- hashtags
     let client =  system.ActorSelection("akka://system/user/"+  sender )
     clientAction client true "Send Tweet" tweetMsg
 
 let clientSubscribe client subscribeTo = 
     let Client =  system.ActorSelection("akka://system/user/"+  client )
-    clientAction Client true "Subscribe" subscribeTo
+    clientAction2 Client true "Subscribe" subscribeTo
 
 let clientRegister client = 
     let clientRef = system.ActorSelection("akka://system/user/" + client)
     clientAction clientRef true "Register" null
 
-let sendToServer server command payload=
-    let serverMsg = new serverMessage(command, payload)
-    server <! serverMsg
+let sendToServer clientName command payload=
+    let serverMsg = new serverMessage()
+    serverMsg.clientName <- clientName
+    serverMsg.command <- command
+    serverMsg.payload <- JsonConvert.SerializeObject(payload)
+    let json = JsonConvert.SerializeObject(serverMsg)
+    let a = Encoding.ASCII.GetBytes(json) |> ArraySegment<byte>
+    let aaa = socket.SendAsync (a, WebSocketMessageType.Text, true, cts.Token)
+    aaa.Wait()
 
-//Actor
-let server (serverMailbox:Actor<serverMessage>) = 
-    //Actor Loop that will process a message on each iteration
-    let mutable client: ActorSelection = null
-    let mutable clientName: String = null
-
-    let rec serverLoop() = actor {
-        
-        let sendLive tweet =
-        
-            let checkExists client toSend = 
-                let client:String = client
-                let toSend:List<String> = toSend
-                let mutable flag = true
-                for item in toSend do
-                    if item.Equals(client) then
-                        flag <- false
-                flag
-
-            let tweet:tweet = tweet
-            let mentions:List<String> = tweet.getMentions
-            
-            let mutable toSend: List<String> = []
-            for client in mentions do
-                toSend <- [client] @ toSend
-
-            for item in subscribedData do
-                let list:List<String> = item.getSubscribedClients
-                for item2 in list do
-                    if item2.Equals(tweet.getSender) then
-                        if checkExists item.getClient toSend then
-                            toSend <- [item.getClient] @ toSend
-
-            for item3 in toSend do
-                let client =  system.ActorSelection("akka://system/user/"+ item3 )
-                clientAction client false "Live" tweet
     
-        //Receive the message
-        let! msg = serverMailbox.Receive()
-        if msg.getCommand = "Register" then
-            clientName <- (string) msg.getPayload
-            client <- system.ActorSelection("akka://system/user/"+ clientName )
-            clientAction client false "Register" null
 
-        elif msg.getCommand = "Send Tweet" then
-            let tweet:tweet = downcast msg.getPayload
-            tweets <- tweets @ [tweet]
-            printfn "Tweet Sent"
-            sendLive tweet
-        
-        elif msg.getCommand = "Subscribe" then
-            let client1 = clientName
-            let client2 =(string) msg.getPayload
-            let mutable flag = true
-            for item in subscribedData do
-                if (item.getClient.Equals(client1)) then
-                    item.addSubscribedClients(client2) |> ignore
-                    flag <- false
-            if(flag) then
-                let sub = new subscribedTo(client1, [client2])
-                subscribedData <- subscribedData @ [sub]
-            printfn "Subscribed"
+let sendToServer2 clientName command payload=
+    let serverMsg = new serverMessage()
+    serverMsg.clientName <- clientName
+    serverMsg.command <- command
+    serverMsg.payload <- payload
+    let json = JsonConvert.SerializeObject(serverMsg)
+    let a = Encoding.ASCII.GetBytes(json) |> ArraySegment<byte>
+    let aaa = socket.SendAsync (a, WebSocketMessageType.Text, true, cts.Token)
+    aaa.Wait()
 
-        elif msg.getCommand = "Retweet" then
-            let tweet:tweet = downcast msg.getPayload
-            let tweet2 = new tweet(clientName, tweet.getTweet, tweet.getMentions, tweet.getHashtags)
-            tweets <- tweets @ [tweet2]
-            printfn "Retweeted"
-            sendLive tweet2
 
-        elif msg.getCommand = "Query" then
-            let query:query = downcast msg.getPayload
-            if query.getTypeOf = "MyMentions" then
-                let mutable mentionedTweetList: List<tweet> = []
-                for tweet in tweets do
-                    let mentions = tweet.getMentions
-                    for mention in mentions do
-                        if mention = clientName then
-                            mentionedTweetList <- mentionedTweetList @ [tweet]
-                clientAction client false "MyMentions" mentionedTweetList
-                
-            elif query.getTypeOf = "Subscribed" then
-                let mutable subscribedTweetList: List<tweet> = []
-                for item in subscribedData do
-                    if item.getClient = clientName then
-                        let subscribedClients:List<String> = item.getSubscribedClients
-                        for subClient in subscribedClients do
-                            for tweet in tweets do
-                                if tweet.getSender = subClient then
-                                    subscribedTweetList <- subscribedTweetList @ [tweet]
-                clientAction client false "Subscribed" subscribedTweetList
 
-            elif query.getTypeOf = "Hashtags" then
-                let mutable hashtagTweetList: List<tweet> = []
-                for item in tweets do
-                    let list:List<String> = item.getHashtags
-                    for hashtag in list do
-                        if hashtag = query.getMatching then
-                            hashtagTweetList <- hashtagTweetList @ [item]
-                clientAction client false "Hashtags" hashtagTweetList
 
-        return! serverLoop()
-    }
 
-    //Call to start the actor loop
-    serverLoop()
+let mainMenuStart value =
+    printfn "User: %A" clientName
+    printfn "Main Menu"
+    printfn ""
+    printfn "Select Choice Below:"
+    printfn "1. Register/Login"
+    let choice = System.Console.ReadLine()
+    choice
 
-//Actor
-let TwitterEngine (EngineMailbox:Actor<serverMessage>) = 
-    //Actor Loop that will process a message on each iteration
+let mainMenu value = 
+    printfn "User: %A" clientName
+    printfn "Main Menu"
+    printfn ""
+    printfn "Select Choice Below:"
+    printfn "1. Register/Login"
+    printfn "2. Send Tweet"
+    printfn "3. Subscribe"
+    printfn "4. Retweet"
+    printfn "5. Tweets I am Tagged In"
+    printfn "6. Tweets from People I have Subscribed"
+    printfn "7. Tweets containing a Hashtag"
+    printfn "8. Logout"
+    printf "Enter a number from 1-8: "
+    let choice = System.Console.ReadLine()
+    choice
 
-    let rec EngineLoop() = actor {
+let mainMenuRunner value = 
+    if registerFlag then
+        mainMenu value
+    else 
+        mainMenuStart value
 
-        //Receive the message
-        let! msg = EngineMailbox.Receive()
-
-        if msg.getCommand = "Register" then
-            spawn system ("serverfor"+(string) msg.getPayload) server |> ignore
-            let server = system.ActorSelection("akka://system/user/"+"serverfor"+ (string) msg.getPayload)
-            server <! msg
-        
-        return! EngineLoop()
-    }
-
-    //Call to start the actor loop
-    EngineLoop()
-
+let menuBack value = 
+    printfn ""
+    printfn "Press Enter to Continue"
+    System.Console.ReadLine() |> ignore
+    System.Console.Clear()
+    menuFlag <- true
 
     //Actor
-let Client (ClientMailbox:Actor<clientMessage>) = 
+let Client (ClientMailbox:Actor<_>) = 
     //Actor Loop that will process a message on each iteration
 
     let mutable server: IActorRef = null
 
-    let ClientToServer server command payload = 
+    let ClientToServer name server command payload = 
         if server <> null then 
-            sendToServer server command payload
+            sendToServer2 name command payload
         else 
             printfn "Not Registered"
 
     let rec ClientLoop() = actor {
 
         //Receive the message
-        let! msg = ClientMailbox.Receive()
+        let! msg2 = ClientMailbox.Receive()
+        let msg = JsonConvert.DeserializeObject<clientMessage> msg2
 
-        if(msg.getControlFlag) then
-            if(msg.getCommand = "Register") then
-                sendToServer Twitter "Register"ClientMailbox.Self.Path.Name
-            elif (msg.getCommand = "Send Tweet" || msg.getCommand = "Subscribe" || 
-                    msg.getCommand = "Retweet" || msg.getCommand = "Query") then
-                    ClientToServer server msg.getCommand msg.getPayload
+        if(msg.controlFlag) then
+            if(msg.command = "Register") then
+                sendToServer2 ClientMailbox.Self.Path.Name "Register"ClientMailbox.Self.Path.Name
+            elif (msg.command = "Send Tweet" || msg.command = "Subscribe" || 
+                    msg.command = "Retweet" || msg.command = "Query" || msg.command = "Logout" ) then
+                    ClientToServer ClientMailbox.Self.Path.Name server msg.command msg.payload
         else
-            if(msg.getCommand = "Register") then
+            if(msg.command = "Register") then
                 server <- ClientMailbox.Sender()
                 printfn "%A Registered" ClientMailbox.Self.Path.Name
+                registerFlag <- true
+                menuBack true
 
-            elif(msg.getCommand = "MyMentions") then
-                let list:List<tweet> = downcast msg.getPayload
-                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name list
- 
-            elif(msg.getCommand = "Subscribed") then
-                let list:List<tweet> = downcast msg.getPayload
-                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name list
+            elif(msg.command = "Retweet") then
+                printfn "%A Retweeted" ClientMailbox.Self.Path.Name
+                menuBack true
 
-            elif(msg.getCommand = "Hashtags") then
-                let list:List<tweet> = downcast msg.getPayload
-                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name list
+            elif(msg.command = "Subscribed") then
+                printfn "%A Subscribed %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
 
-            elif(msg.getCommand = "Live") then 
-                let liveTweet:tweet = downcast msg.getPayload
-                printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name liveTweet
+            elif(msg.command = "Retweet") then
+                printfn "%A Retweeted" ClientMailbox.Self.Path.Name
+                menuBack true
 
+            elif(msg.command = "Send Tweet") then
+                printfn "%A Tweet Sent: %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
+            elif(msg.command = "MyMentions") then
+                let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
+                printfn "%A My Mentions Received %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
+            elif(msg.command = "Subscribed") then
+                let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
+                printfn "%A Subscribed Tweets Received %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
+            elif(msg.command = "Hashtags") then
+                let list:List<tweet> = JsonConvert.DeserializeObject<List<tweet>> ((string)msg.payload)
+                printfn "%A Hashtags Queried Returned %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
+            elif(msg.command = "Live") then 
+                let liveTweet:tweet = JsonConvert.DeserializeObject<tweet> ((string)msg.payload)
+                printfn "%A Live Tweet Received %A" ClientMailbox.Self.Path.Name msg.payload
+                menuBack true
+
+            elif(msg.command = "Logout") then
+                registerFlag <- false
+                printfn "%A Logged out!" clientName
+                let client =  system.ActorSelection("akka://system/user/"+  clientName )
+                menuBack true
 
         return! ClientLoop()
     }
@@ -269,45 +251,107 @@ let Client (ClientMailbox:Actor<clientMessage>) =
     ClientLoop()
 
 let clientSpawnRegister client = 
-    spawn system client Client |> ignore
+    if (actorFlag = false) then
+        spawn system client Client |> ignore
+        actorFlag <- true
+
     clientRegister client
+
 
 let delay num = 
     System.Threading.Thread.Sleep(num * 1000)
 
+let getListOfHashes (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfHashes = List.Empty
+    for word in words do
+        if ((word.Chars 0)='#') then
+            listOfHashes <- listOfHashes @ [word]
+    listOfHashes
+
+let getListOfMentions (tweet:string) = 
+    let words = tweet.Split [|' '|]
+    let mutable listOfMentions = List.Empty
+    for word in words do
+        if ((word.Chars 0)='@') then
+            listOfMentions <- listOfMentions @ [word.[1..word.Length-1]]
+    listOfMentions
+
+let choiceRunner choice = 
+    menuFlag <- false
+    if choice = "1" then
+        clientSpawnRegister clientName
+    elif choice = "2" && registerFlag then 
+        printf "Enter Tweet: "
+        let tweetText:String = System.Console.ReadLine()
+        let mentionsList = getListOfMentions tweetText
+        let hashtagList = getListOfHashes tweetText
+        clientTweet clientName tweetText mentionsList hashtagList
+    elif choice = "3" && registerFlag then
+        printf "Enter User You Want to Subscribe: "
+        let user2Sub:String = System.Console.ReadLine()
+        clientSubscribe clientName user2Sub
+    elif choice = "4" && registerFlag then
+        printf "Enter Tweet ID to Retweet: "
+        let tweetID:String = System.Console.ReadLine()
+        clientRetweet clientName tweetID
+    elif choice = "5" && registerFlag then
+        clientQuery clientName "MyMentions" null
+    elif choice = "6" && registerFlag then
+        clientQuery clientName "Subscribed" null
+    elif choice = "7" && registerFlag then
+        printf "Enter Hashtag to Search: "
+        let hashtag:String = System.Console.ReadLine()
+        clientQuery clientName "Hashtags" hashtag
+    elif choice = "8" && registerFlag then
+        clientLogout clientName
+    else 
+        menuFlag <- true
+        printfn "Invalid Input, Please Try Again"
+
+
+let receivefun = async{
+    let buffer = WebSocket.CreateClientBuffer(1000, 1000)
+    let mutable xx = false
+    let mutable dd = null
+    while(true) do
+        dd <- socket.ReceiveAsync (buffer, cts.Token)
+        xx <- dd.Result.EndOfMessage
+        let msg = JsonConvert.DeserializeObject<clientMessage> (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
+        //printfn "%A" (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
+        let Client =  system.ActorSelection("akka://system/user/"+  msg.name )
+        Client <! (Encoding.ASCII.GetString((Seq.toArray buffer), 0, (dd.Result.Count)))
+    }
+
+
+
+
+
+
+let startClient = async {
+
+    while(true) do
+        if menuFlag then
+            choiceRunner (mainMenuRunner true)
+    
+}
+    
 [<EntryPoint>]
 let main argv =
-    spawn system "Twitter" TwitterEngine |> ignore
+    printf "Enter a Client Name: "
+    clientName <- System.Console.ReadLine()
+    printfn "Welcome %A!" clientName
+    printfn ""
+    printfn "Press Enter to Continue"
+    System.Console.ReadLine() |> ignore
+    System.Console.Clear()
 
-    clientSpawnRegister "client0"
-    delay 1
-    clientSpawnRegister "client1"
-    delay 1
-    clientSpawnRegister "client2"
- 
-    delay 1
-    clientSubscribe "client0" "client1"
-    delay 1
-    clientSubscribe "client0" "client2"
-    delay 1
-    clientSubscribe "client1" "client2"
-    delay 1
-    clientSubscribe "client1" "client0"
-    delay 1
-    clientSubscribe "client2" "client0"
-    delay 1
-
-    //clientTweet "client0" "Hello World" [] ["FirstTweet"; "NewUser"]
-    clientTweet "client0" "Hello World" ["client1"; "client2"] ["FirstTweet"; "NewUser"]
     
-    delay 1
-
-    //clientRetweet "client1" tweets.[0]
-
-    //clientQuery "client1" "MyMentions" null
-    //clientQuery "client0" "Subscribed" null
-    //clientQuery "client1" "Hashtags" "FirstTweet"
-
+    [receivefun; startClient]
+        |> Async.Parallel
+        |> Async.RunSynchronously
+        |> ignore
+    
     System.Console.ReadKey() |> ignore
 
     0 // return an integer exit code
